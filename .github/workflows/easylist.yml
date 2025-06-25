@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
 
-      - run: node js/dnr_generator.js   # ruleset/block1.json 생성
+      - run: node js/cicd/dnr_generator.js   # ruleset/block1.json 생성
 
       - name: Commit & push
         run: |

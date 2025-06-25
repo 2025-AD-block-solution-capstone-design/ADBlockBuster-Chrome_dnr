@@ -3,11 +3,10 @@
     "version": "1.0",
     "description": "Remove Adware with Chrome extension",
     "manifest_version": 3,
-    "host_permissions": [
-        "<all_urls>"
-    ],
+    "host_permissions": ["<all_urls>"],
     "background": {
-        "service_worker": "service-worker.js"
+        "service_worker": "js/service-worker.js",
+        "type": "module"
     },
     "minimum_chrome_version": "122",
     "declarative_net_request": {
@@ -23,13 +22,11 @@
         {
             "all_frames": true,
             "match_about_blank": true,
-            "matches": [
-                "http://*/*",
-                "https://*/*",
-                "file://*/*"
-            ],
+            "run_at": "document_idle",
+            "matches": ["<all_urls>"],
             "js": [
-                "content/cosmetic.js"
+                "js/constant/constant.js",
+                "js/cosmetic-filter/core.js"
             ]
         }
     ],

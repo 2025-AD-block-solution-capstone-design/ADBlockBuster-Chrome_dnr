@@ -6,8 +6,8 @@ class DNRRule {
     constructor(actionType, urlFilter, resourceTypes = []) {
         this.id = DNRRule.idCounter++;
         this.priority = 1;
-        this.action = { type: actionType };
-        this.condition = { urlFilter };
+        this.action = {type: actionType};
+        this.condition = {urlFilter};
 
         if (resourceTypes.length > 0) {
             this.condition.resourceTypes = resourceTypes;
@@ -88,4 +88,4 @@ class DNRRuleGenerator {
     }
 }
 
-export { DNRRuleGenerator, DNRRuleParser, DNRRule, DNRBlockRule, DNRAllowRule };
+export {DNRRuleGenerator, DNRRuleParser, DNRRule, DNRBlockRule, DNRAllowRule};

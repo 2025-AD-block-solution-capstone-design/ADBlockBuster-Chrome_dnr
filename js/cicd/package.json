@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-      "update-rules": "node js/dnr_generator.js"
+      "update-rules": "node js/cicd/dnr_generator.js"
     }
   }
   
