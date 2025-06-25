@@ -1,91 +1,98 @@
-import fs from 'fs';
+// js/rule-parser/dnr.js
 
+/**
+ * 브라우저 DNR 룰 생성용 클래스들
+ */
 class DNRRule {
     static idCounter = 1;
 
     constructor(actionType, urlFilter, resourceTypes = []) {
-        this.id = DNRRule.idCounter++;
+        this.id       = DNRRule.idCounter++;
         this.priority = 1;
-        this.action = {type: actionType};
-        this.condition = {urlFilter};
-
-        if (resourceTypes.length > 0) {
+        this.action   = { type: actionType };
+        this.condition = { urlFilter };
+        if (resourceTypes.length) {
             this.condition.resourceTypes = resourceTypes;
         }
     }
 
     toJSON() {
         return {
-            id: this.id,
+            id:       this.id,
             priority: this.priority,
-            action: this.action,
+            action:   this.action,
             condition: this.condition
         };
     }
 }
 
 class DNRBlockRule extends DNRRule {
-    constructor(domain, optionString = "") {
-        const urlFilter = `||${domain}^`;
-        const resourceTypes = [];
-
-        if (optionString.includes("image")) resourceTypes.push("image");
-        if (optionString.includes("script")) resourceTypes.push("script");
-
-        super("block", urlFilter, resourceTypes);
+    constructor(domain, optionString = '') {
+        // ||domain^ 형태로 차단
+        const filter = `||${domain}^`;
+        const types = [];
+        if (optionString.includes('image'))  types.push('image');
+        if (optionString.includes('script')) types.push('script');
+        super('block', filter, types);
     }
 }
 
 class DNRAllowRule extends DNRRule {
     constructor(domain) {
-        const urlFilter = `||${domain}^`;
-        super("allow", urlFilter);
+        super('allow', `||${domain}^`);
     }
 }
 
+/**
+ * 한 줄을 파싱해 DNRRule 인스턴스를 반환하거나 null
+ */
 class DNRRuleParser {
-    static parseLine(line) {
-        line = line.trim();
-        if (line === "" || line.startsWith("!") || line.startsWith("[Adblock")) return null;
+    static parseLine(raw) {
+        const line = raw.trim();
+        if (!line || line.startsWith('!') || line.startsWith('[Adblock')) return null;
 
+        // 예외 허용 룰 (@@||domain^...)
         const allowMatch = line.match(/^@@\|\|([^\^\/\$\*]+)\^(\$[^#]+)?/);
         if (allowMatch) {
-            const domain = allowMatch[1];
-            const option = allowMatch[2] || "";
-            if (option.includes("domain=") || option.includes("third-party") || option.includes("inline-script")) return null;
+            const [ , domain, opts = '' ] = allowMatch;
+            // 도메인 제한(domain=)이나 3rd-party 등은 무시
+            if (opts.includes('domain=') || opts.includes('third-party') || opts.includes('inline-script')) {
+                return null;
+            }
             return new DNRAllowRule(domain);
         }
 
+        // 기본 차단 룰 (||domain^...)
         const blockMatch = line.match(/^\|\|([^\^\/\$\*]+)\^(\$[^#]+)?/);
         if (blockMatch) {
-            const domain = blockMatch[1];
-            const option = blockMatch[2] || "";
-            if (option.includes("domain=") || option.includes("third-party")) return null;
-            return new DNRBlockRule(domain, option);
+            const [ , domain, opts = '' ] = blockMatch;
+            if (opts.includes('domain=') || opts.includes('third-party')) {
+                return null;
+            }
+            return new DNRBlockRule(domain, opts);
         }
 
         return null;
     }
 }
 
-class DNRRuleGenerator {
-    constructor() {
-        this.rules = [];
-    }
+/**
+ * parseDNRRules
+ * @param {string} txt EasyList 또는 EasyPrivacy 텍스트 전체
+ * @returns {Array<Object>} chrome.declarativeNetRequest 규격의 룰 객체 배열
+ */
+export function parseDNRRules(txt) {
+    // 매번 호출 시 idCounter 리셋
+    DNRRule.idCounter = 1;
+    const lines = txt.split(/\r?\n/);
+    const out = [];
 
-    loadFromFile(path) {
-        const lines = fs.readFileSync(path, "utf-8").split("\n");
-        for (const line of lines) {
-            const rule = DNRRuleParser.parseLine(line);
-            if (rule) this.rules.push(rule);
+    for (const line of lines) {
+        const rule = DNRRuleParser.parseLine(line);
+        if (rule) {
+            out.push(rule.toJSON());
         }
     }
 
-    exportToFile(outputPath) {
-        const ruleObjects = this.rules.map(rule => rule.toJSON());
-        fs.writeFileSync(outputPath, JSON.stringify(ruleObjects, null, 2));
-        console.log(`생성 완료: ${outputPath}, (${ruleObjects.length}개 규칙)`);
-    }
+    return out;
 }
-
-export {DNRRuleGenerator, DNRRuleParser, DNRRule, DNRBlockRule, DNRAllowRule};

@@ -1,120 +1,170 @@
-// setting.js
-const globalToggle = document.getElementById('globalBlockToggle');
-const RULESET_ID = 'block_rule';
-const menuBlockSettings = document.getElementById('menu-block-settings');
-const menuWhitelist = document.getElementById('menu-whitelist');
-const sectionBlockSettings = document.getElementById('block-settings');
-const sectionWhitelist = document.getElementById('whitelist-management');
-const whitelistForm = document.getElementById('whitelistForm');
-const whitelistInput = document.getElementById('whitelistInput');
-const whitelistList = document.getElementById('whitelistList');
+// js/setting.js
+import { parseDNRRules }      from './rule-parser/dnr.js';
+import { parseCosmeticRules } from './rule-parser/cosmetic.js';
 
+const EASYLIST_URL        = 'https://easylist.to/easylist/easylist.txt';
+const PRIVACY_URL         = 'https://easylist.to/easylist/easyprivacy.txt';
+const PACKAGED_EASY_PATH  = 'easylist/easylist.txt';
+const PACKAGED_PRIV_PATH  = 'easylist/easyprivacy.txt';
 
-// 메뉴 전환
-menuBlockSettings.addEventListener('click', () => {
-  sectionBlockSettings.style.display = 'block';
-  sectionWhitelist.style.display = 'none';
-});
+const EASYLIST_HASH_KEY   = 'easylistHash';
+const PRIVACY_HASH_KEY    = 'privacyHash';
+const LAST_CHECK_DATE_KEY = 'lastCheckDate';
+const RULESET_ID          = 'block_rule';
 
-menuWhitelist.addEventListener('click', () => {
-  sectionBlockSettings.style.display = 'none';
-  sectionWhitelist.style.display = 'block';
-});
+const checkBtn           = document.getElementById('checkUpdateBtn');
+const availableContainer = document.getElementById('availableContainer');
+const performBtn         = document.getElementById('performUpdateBtn');
+const updateStatus       = document.getElementById('updateStatus');
+const updateLabel        = document.getElementById('updateLabel');
+const globalToggle       = document.getElementById('globalBlockToggle');
+const menuBlockBtn       = document.getElementById('menu-block-settings');
+const menuWhiteBtn       = document.getElementById('menu-whitelist');
+const blockSection       = document.getElementById('block-settings');
+const whitelistSection   = document.getElementById('whitelist-management');
+const whitelistForm      = document.getElementById('whitelistForm');
+const whitelistInput     = document.getElementById('whitelistInput');
+const whitelistList      = document.getElementById('whitelistList');
 
-// ruleset 적용 함수
-async function updateRuleset(disabled) {
-  await chrome.declarativeNetRequest.updateEnabledRulesets({
-    enableRulesetIds: disabled ? [] : [RULESET_ID],
-    disableRulesetIds: disabled ? [RULESET_ID] : []
+const md5 = SparkMD5;
+
+/** 1) 업데이트 가능 여부 확인 → availableContainer 노출 */
+async function checkForRuleUpdates() {
+  updateStatus.textContent = '업데이트 확인 중…';
+
+  const { easylistHash, privacyHash } = await chrome.storage.local.get({
+    easylistHash: '',
+    privacyHash:  ''
   });
-}
 
-// 상태 동기화
-chrome.storage.sync.get(['globalBlockingDisabled'], async (result) => {
-  let isDisabled = result.globalBlockingDisabled;
+  let oldEasyHash    = easylistHash;
+  let oldPrivacyHash = privacyHash;
 
-  if (typeof isDisabled === 'undefined') {
-    isDisabled = false; // 기본값: 광고 차단 활성화
-    await chrome.storage.sync.set({ globalBlockingDisabled: isDisabled });
+  if (!oldEasyHash) {
+    const txt = await fetch(chrome.runtime.getURL(PACKAGED_EASY_PATH)).then(r=>r.text());
+    oldEasyHash = md5.hash(txt);
+  }
+  if (!oldPrivacyHash) {
+    const txt = await fetch(chrome.runtime.getURL(PACKAGED_PRIV_PATH)).then(r=>r.text());
+    oldPrivacyHash = md5.hash(txt);
   }
 
-  globalToggle.checked = isDisabled;
-  await updateRuleset(isDisabled);
-});
+  const [easyTxt, privacyTxt] = await Promise.all([
+    fetch(EASYLIST_URL).then(r=>r.text()),
+    fetch(PRIVACY_URL).then(r=>r.text())
+  ]);
+  const newEasyHash    = md5.hash(easyTxt);
+  const newPrivacyHash = md5.hash(privacyTxt);
 
-// 토글 변경 이벤트
-globalToggle.addEventListener('change', async () => {
-  const isDisabled = globalToggle.checked;
-  await chrome.storage.sync.set({ globalBlockingDisabled: isDisabled });
-  await updateRuleset(isDisabled);
-});
+  if (newEasyHash !== oldEasyHash || newPrivacyHash !== oldPrivacyHash) {
+    availableContainer.hidden = false;
+    updateStatus.textContent   = '업데이트 가능합니다.';
+  } else {
+    updateStatus.textContent = '이미 최신입니다.';
+  }
 
-// 화이트리스트 입력 처리 및 저장
-whitelistForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const domain = whitelistInput.value.trim();
-
-  if (!domain) return;
-
-  chrome.storage.sync.get(['whitelist'], async (result) => {
-    let list = result.whitelist || [];
-
-    if (!list.includes(domain)) {
-      list.push(domain);
-      await chrome.storage.sync.set({ whitelist: list });
-      renderWhitelist(list); // 🔥 추가 후 바로 다시 렌더링
-    }
-
-    whitelistInput.value = '';
-  });
-
-});
-
-// 저장된 화이트리스트 불러오기
-chrome.storage.sync.get(['whitelist'], (result) => {
-  const list = result.whitelist || [];
-  list.forEach((site) => {
-    const li = document.createElement('li');
-    li.textContent = site;
-    whitelistList.appendChild(li);
-  });
-});
-
-function renderWhitelist(domains) {
-  const list = document.getElementById('whitelistList');
-  list.innerHTML = '';
-
-  domains.forEach((domain) => {
-    const li = document.createElement('li');
-
-    const domainSpan = document.createElement('span');
-    domainSpan.textContent = domain;
-    domainSpan.className = 'site-domain';
-
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = 'X';
-    removeBtn.className = 'remove-btn';
-
-    removeBtn.addEventListener('click', async () => {
-      chrome.storage.sync.get(['whitelist'], async (result) => {
-        const updatedList = (result.whitelist || []).filter(d => d !== domain);
-        await chrome.storage.sync.set({ whitelist: updatedList });
-        renderWhitelist(updatedList);
-      });
-    });
-
-    li.appendChild(domainSpan);
-    li.appendChild(removeBtn);
-    list.appendChild(li);
+  await chrome.storage.local.set({
+    [LAST_CHECK_DATE_KEY]: new Date().toISOString().slice(0,10)
   });
 }
 
+/** 2) performUpdateBtn 클릭 → 실제 업데이트 */
+async function performUpdate() {
+  performBtn.disabled    = true;
+  updateLabel.textContent = '업데이트 중…';
 
+  try {
+    const [easyTxt, privacyTxt] = await Promise.all([
+      fetch(EASYLIST_URL).then(r=>r.text()),
+      fetch(PRIVACY_URL).then(r=>r.text())
+    ]);
 
+    const dnrEasy  = parseDNRRules(easyTxt);
+    const dnrPriv  = parseDNRRules(privacyTxt);
+    const cosmetic = parseCosmeticRules(easyTxt);
 
-document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.sync.get(['whitelist'], (result) => {
-    const domains = result.whitelist || [];
-    renderWhitelist(domains);
+    await chrome.storage.local.set({
+      easylist:           dnrEasy,
+      easyprivacy:        dnrPriv,
+      cosmetic:           cosmetic,
+      [EASYLIST_HASH_KEY]:  md5.hash(easyTxt),
+      [PRIVACY_HASH_KEY]:   md5.hash(privacyTxt),
+      [LAST_CHECK_DATE_KEY]: new Date().toISOString().slice(0,10)
+    });
+
+    chrome.runtime.sendMessage({ action: 'rulesUpdated' });
+
+    updateStatus.textContent = '업데이트 완료 ✅';
+    availableContainer.hidden = true;
+  } catch (err) {
+    updateStatus.textContent = `업데이트 실패 ❌: ${err.message}`;
+  } finally {
+    performBtn.disabled = false;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // UI 초기화
+  availableContainer.hidden = true;
+  updateStatus.textContent   = '';
+
+  // 1) “업데이트 확인”
+  checkBtn.addEventListener('click', checkForRuleUpdates);
+  // 3) “업데이트 실행”
+  performBtn.addEventListener('click', performUpdate);
+
+  // —— 이하 기존 설정 로직 유지 ——
+  menuBlockBtn.addEventListener('click', () => {
+    blockSection.style.display     = 'block';
+    whitelistSection.style.display = 'none';
+  });
+  menuWhiteBtn.addEventListener('click', () => {
+    blockSection.style.display     = 'none';
+    whitelistSection.style.display = 'block';
+    renderWhitelist();
+  });
+
+  const { globalBlockingDisabled = false } = await chrome.storage.sync.get('globalBlockingDisabled');
+  globalToggle.checked = globalBlockingDisabled;
+  globalToggle.addEventListener('change', async () => {
+    const disabled = globalToggle.checked;
+    await chrome.storage.sync.set({ globalBlockingDisabled: disabled });
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+      enableRulesetIds:  disabled ? [] : [RULESET_ID],
+      disableRulesetIds: disabled ? [RULESET_ID] : []
+    });
+  });
+
+  whitelistForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const site = whitelistInput.value.trim().toLowerCase();
+    if (!site) return;
+    const { whitelist = [] } = await chrome.storage.sync.get('whitelist');
+    if (!whitelist.includes(site)) {
+      whitelist.push(site);
+      await chrome.storage.sync.set({ whitelist });
+      renderWhitelist();
+      whitelistInput.value = '';
+    }
   });
 });
+
+// 화이트리스트 렌더링 헬퍼
+async function renderWhitelist() {
+  const { whitelist = [] } = await chrome.storage.sync.get('whitelist');
+  whitelistList.innerHTML = '';
+  whitelist.forEach(site => {
+    const li = document.createElement('li');
+    li.textContent = site;
+    const btn = document.createElement('button');
+    btn.textContent = '삭제';
+    btn.addEventListener('click', async () => {
+      const { whitelist=[] } = await chrome.storage.sync.get('whitelist');
+      const newList = whitelist.filter(s => s !== site);
+      await chrome.storage.sync.set({ whitelist: newList });
+      renderWhitelist();
+    });
+    li.appendChild(btn);
+    whitelistList.appendChild(li);
+  });
+}

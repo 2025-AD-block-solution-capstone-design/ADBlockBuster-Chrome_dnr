@@ -3,7 +3,11 @@
     "version": "1.0",
     "description": "Remove Adware with Chrome extension",
     "manifest_version": 3,
-    "host_permissions": ["<all_urls>"],
+    "host_permissions": [
+        "https://easylist.to/easylist/easylist.txt",
+        "https://easylist.to/easylist/easyprivacy.txt",
+        "<all_urls>"
+    ],
     "background": {
         "service_worker": "js/service-worker.js",
         "type": "module"
@@ -23,7 +27,9 @@
             "all_frames": true,
             "match_about_blank": true,
             "run_at": "document_idle",
-            "matches": ["<all_urls>"],
+            "matches": [
+                "<all_urls>"
+            ],
             "js": [
                 "js/constant/constant.js",
                 "js/cosmetic-filter/core.js"

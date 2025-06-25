@@ -6,38 +6,51 @@
   <link rel="stylesheet" href="css/popup.css" />
 </head>
 <body>
-  <div class="header">
-    <img src="icons/images.png" alt="Logo" class="logo" />
-    <span class="title">ADBlockBuster</span>
+<div class="header">
+  <img src="icons/images.png" alt="Logo" class="logo" />
+  <span class="title">ADBlockBuster</span>
+</div>
+
+<!-- 1) 업데이트 확인 버튼 -->
+<div id="updateContainer" class="update-container">
+  <button id="checkUpdateBtn">업데이트 확인</button>
+  <!-- 2) 업데이트 가능 시 노출되는 실행 여부 영역 -->
+  <div id="availableContainer" hidden>
+    <span id="updateLabel">새로운 룰셋이 있습니다.</span>
+    <button id="performUpdateBtn">업데이트 실행</button>
   </div>
-  <!-- 광고 전체 차단 토글 -->
-  <div class="toggle-container">
-    <span class="toggle-label">광고 차단 비활성화</span>
-    <label class="toggle-switch">
-      <input type="checkbox" id="globalBlockToggle">
-      <span class="slider"></span>
-    </label>
-  </div>
+  <!-- 상태 메시지 -->
+  <div id="updateStatus" class="update-status"></div>
+</div>
 
-  <!-- 현재 사이트 허용 토글 -->
-  <div class="toggle-container">
-    <span class="toggle-label">현재 사이트 허용</span>
-    <label class="toggle-switch">
-      <input type="checkbox" id="whitelistToggle">
-      <span class="slider"></span>
-    </label>
-  </div>
+<!-- 광고 전체 차단 토글 -->
+<div class="toggle-container">
+  <span class="toggle-label">광고 차단 비활성화</span>
+  <label class="toggle-switch">
+    <input type="checkbox" id="globalBlockToggle">
+    <span class="slider"></span>
+  </label>
+</div>
 
-  <div class="card">
-    <div class="card-title">총 차단된 광고 수</div>
-    <div class="ad-count" id="adCount">0</div>
-  </div>
+<!-- 현재 사이트 허용 토글 -->
+<div class="toggle-container">
+  <span class="toggle-label">현재 사이트 허용</span>
+  <label class="toggle-switch">
+    <input type="checkbox" id="whitelistToggle">
+    <span class="slider"></span>
+  </label>
+</div>
 
-  
+<div class="card">
+  <div class="card-title">총 차단된 광고 수</div>
+  <div class="ad-count" id="adCount">0</div>
+</div>
 
-  <button class="settings-btn" id="goToSettingsBtn">설정</button>
+<button class="settings-btn" id="goToSettingsBtn">설정</button>
 
-  <!-- JavaScript 파일 불러오기 -->
-  <script type="module" src="js/popup.js"></script>
+<!-- SparkMD5: MD5 해시 계산용 -->
+<script src="js/libs/spark-md5.min.js"></script>
+<!-- 팝업 로직 -->
+<script type="module" src="js/popup.js"></script>
 </body>
 </html>
