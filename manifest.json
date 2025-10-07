@@ -41,7 +41,8 @@
         "declarativeNetRequestFeedback",
         "storage",
         "scripting",
-        "tabs"
+        "tabs",
+        "webNavigation"
     ],
     "action": {
         "default_popup": "popup.html",

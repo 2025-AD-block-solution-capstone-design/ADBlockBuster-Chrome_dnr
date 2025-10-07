@@ -9,6 +9,7 @@ const MAX_DOMAIN_ENTRIES = 5;
 let cosmeticRuleset = [];
 let totalBlockedCount = 0;
 let blockedDomainCounts = {};
+const recentBlocksByTab = new Map();
 
 console.log('[service-worker] Starting background service worker.');
 
@@ -23,6 +24,10 @@ initialize().catch(error => {
 });
 
 chrome.declarativeNetRequest.onRuleMatchedDebug.addListener(handleRuleMatched);
+
+chrome.webNavigation.onErrorOccurred.addListener(handleNavigationError, {
+  url: [{ schemes: ['http', 'https'] }]
+});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && Object.prototype.hasOwnProperty.call(changes, 'whitelist')) {
@@ -160,25 +165,16 @@ function handleRuleMatched(info) {
     tabId: info.tabId
   });
 
-  totalBlockedCount += 1;
   const hostname = extractHostname(request.url);
-  if (hostname) {
-    blockedDomainCounts[hostname] = (blockedDomainCounts[hostname] ?? 0) + 1;
-  }
+  recordBlockEvent(hostname, info.tabId ?? null);
+}
 
-  chrome.storage.local.set({
-    [TOTAL_COUNT_KEY]: totalBlockedCount,
-    [DOMAIN_COUNT_KEY]: blockedDomainCounts
-  });
+function handleNavigationError(details) {
+  if (details.frameId !== 0) return; // 메인 프레임만 체크
+  if (details.error !== 'net::ERR_BLOCKED_BY_CLIENT') return;
 
-  const topBlockedDomains = getTopBlockedDomains(blockedDomainCounts, MAX_DOMAIN_ENTRIES);
-  notifyClients({
-    type: 'TOTAL_BLOCKED_COUNT_UPDATED',
-    payload: {
-      totalBlockedCount,
-      topBlockedDomains
-    }
-  });
+  const hostname = extractHostname(details.url);
+  recordBlockEvent(hostname, details.tabId ?? null);
 }
 
 function notifyClients(message) {
@@ -218,6 +214,38 @@ async function resetBlockStats() {
     payload: {
       totalBlockedCount,
       topBlockedDomains: []
+    }
+  });
+}
+
+function recordBlockEvent(hostname, tabId) {
+  if (!hostname) return;
+
+  const now = Date.now();
+  const last = tabId != null ? recentBlocksByTab.get(tabId) : undefined;
+  if (last && last.hostname === hostname && now - last.timestamp < 500) {
+    // 직전에 기록한 동일 탭/도메인 이벤트면 중복으로 간주
+    return;
+  }
+
+  totalBlockedCount += 1;
+  blockedDomainCounts[hostname] = (blockedDomainCounts[hostname] ?? 0) + 1;
+
+  if (tabId != null) {
+    recentBlocksByTab.set(tabId, { hostname, timestamp: now });
+  }
+
+  chrome.storage.local.set({
+    [TOTAL_COUNT_KEY]: totalBlockedCount,
+    [DOMAIN_COUNT_KEY]: blockedDomainCounts
+  });
+
+  const topBlockedDomains = getTopBlockedDomains(blockedDomainCounts, MAX_DOMAIN_ENTRIES);
+  notifyClients({
+    type: 'TOTAL_BLOCKED_COUNT_UPDATED',
+    payload: {
+      totalBlockedCount,
+      topBlockedDomains
     }
   });
 }
