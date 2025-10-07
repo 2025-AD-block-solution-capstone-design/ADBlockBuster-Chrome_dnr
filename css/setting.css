@@ -293,9 +293,66 @@ body {
   margin-top: 1rem !important;
 }
 
-/* Bootstrap 기본 스타일 오버라이드 */
+/* 네비게이션 버튼 스타일 */
+.nav-link {
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-left: 3px solid #fff !important;
+  padding-left: 1rem !important;
+}
+
+/* 설정 섹션 표시/숨김 스타일 */
+.setting-section {
+  display: none !important;
+}
+
+.setting-section.d-block {
+  display: block !important;
+}
+
 .setting-section.d-none {
   display: none !important;
+}
+
+/* 차단 통계 대시보드 스타일 */
+.stats-card {
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+.stats-number {
+  font-weight: bold;
+  color: #495057;
+}
+
+.stats-icon {
+  opacity: 0.8;
+}
+
+.stats-label {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 대시보드 반응형 조정 */
+@media (max-width: 768px) {
+  .stats-card {
+    margin-bottom: 1rem;
+  }
 }
 
 .setting-section.d-block {

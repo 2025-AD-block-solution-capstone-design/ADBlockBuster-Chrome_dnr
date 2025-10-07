@@ -39,3 +39,7 @@ const ACTION_HANDLERS = {
     [ACTIONS.TRANSFORM_SCALE_ZERO]: el => el.style.transform = 'scale(0)',
     [ACTIONS.CLIP_RECT_ZERO]: el => el.style.clip = 'rect(0,0,0,0)'
 };
+
+// Global variables for both content scripts and service worker
+globalThis.ACTIONS = ACTIONS;
+globalThis.ACTION_HANDLERS = ACTION_HANDLERS;

@@ -78,12 +78,22 @@ class CosmeticFilter {
      * @param {Record<string, { element: HTMLElement, css: Record<string,string>, domain: string|null }[]>} matchedSelectors
      */
     async applyInlineCSS(matchedSelectors) {
+        let blockedCount = 0;
         for (const selector in matchedSelectors) {
             for (const {element, css} of matchedSelectors[selector]) {
                 for (const [prop, value] of Object.entries(css)) {
                     element.style.setProperty(prop, value, 'important');
                 }
+                blockedCount++;
             }
+        }
+        
+        // service-worker로 차단된 요소 수 전송
+        if (blockedCount > 0) {
+            chrome.runtime.sendMessage({
+                type: 'COSMETIC_BLOCKED',
+                count: blockedCount
+            });
         }
     }
 
@@ -93,12 +103,14 @@ class CosmeticFilter {
      * @param {Record<string, { element: HTMLElement, css: Record<string,string>, domain: string|null }[]>} matchedSelectors
      */
     async removeElements(matchedSelectors) {
+        let removedCount = 0;
         for (const selector in matchedSelectors) {
             for (const {element} of matchedSelectors[selector]) {
                 // 이미지가 아니면 제거
                 if (!(element instanceof HTMLImageElement)) {
                     try {
                         element.remove();
+                        removedCount++;
                     } catch (err) {
                         console.warn(
                             `[Cosmetic] Failed to remove element for selector "${selector}"`,
@@ -108,6 +120,14 @@ class CosmeticFilter {
                 }
             }
         }
+        
+        // service-worker로 제거된 요소 수 전송
+        if (removedCount > 0) {
+            chrome.runtime.sendMessage({
+                type: 'COSMETIC_BLOCKED',
+                count: removedCount
+            });
+        }
     }
 
 
@@ -116,6 +136,7 @@ class CosmeticFilter {
      * @param {Record<string, { element: HTMLElement, css: Record<string,string>, domain: string|null }[]>} matchedSelectors
      */
     async observeDynamicContent(matchedSelectors) {
+        let hiddenCount = 0;
         for (const selector in matchedSelectors) {
             for (const {element, css} of matchedSelectors[selector]) {
                 if (!element.dataset.adHidden) {
@@ -124,11 +145,20 @@ class CosmeticFilter {
                             element.style.setProperty(prop, value, 'important');
                         }
                         element.dataset.adHidden = 'true';
+                        hiddenCount++;
                     } catch (err) {
                         console.warn(`[Cosmetic] Failed to hide dynamic: "${selector}"`, err);
                     }
                 }
             }
+        }
+        
+        // service-worker로 동적 차단 요소 수 전송
+        if (hiddenCount > 0) {
+            chrome.runtime.sendMessage({
+                type: 'COSMETIC_BLOCKED',
+                count: hiddenCount
+            });
         }
     }
 
@@ -155,6 +185,7 @@ class CosmeticFilter {
      * @param {Record<string, { element: HTMLElement, css: Record<string,string>, domain: string|null }[]>} matchedSelectors
      */
     async observeDynamicContentInShadow(shadowRoot, matchedSelectors) {
+        let shadowBlockedCount = 0;
         for (const selector in matchedSelectors) {
             let elems;
             try {
@@ -169,6 +200,15 @@ class CosmeticFilter {
                         el.style.setProperty(prop, value, 'important');
                     }
                 }
+                shadowBlockedCount++;
+            });
+        }
+        
+        // service-worker로 Shadow DOM 차단 요소 수 전송
+        if (shadowBlockedCount > 0) {
+            chrome.runtime.sendMessage({
+                type: 'COSMETIC_BLOCKED',
+                count: shadowBlockedCount
             });
         }
     }

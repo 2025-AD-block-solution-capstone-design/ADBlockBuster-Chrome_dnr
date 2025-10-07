@@ -1,69 +1,61 @@
 {
-    "name": "capstone_adblock",
-    "version": "1.0",
-    "description": "Remove Adware with Chrome extension",
-    "manifest_version": 3,
-    "host_permissions": [
-        "https://easylist.to/easylist/easylist.txt",
-        "https://easylist.to/easylist/easyprivacy.txt",
-        "<all_urls>"
-    ],
-    "background": {
-        "service_worker": "js/service-worker.js",
-        "type": "module"
-    },
-    "minimum_chrome_version": "122",
-    "declarative_net_request": {
-        "rule_resources": [
-            {
-                "id": "block_rule",
-                "enabled": true,
-                "path": "ruleset/block1.json"
-            }
-        ]
-    },
-    "content_scripts": [
-        {
-            "all_frames": true,
-            "match_about_blank": true,
-            "run_at": "document_idle",
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "js/constant/constant.js",
-                "js/cosmetic-filter/core.js"
-            ]
-        }
-    ],
-    "permissions": [
-        "declarativeNetRequest",
-        "declarativeNetRequestFeedback",
-        "storage",
-        "scripting",
-        "tabs"
-    ],
-    "action": {
-        "default_popup": "popup.html",
-        "default_icon": {
-            "16": "icons/images.png",
-            "48": "icons/images.png",
-            "128": "icons/images.png"
-        }
-    },
-    "icons": {
-        "16": "icons/images.png",
-        "48": "icons/images.png",
-        "128": "icons/images.png"
-    },
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "setting.html"
-            ],
-            "matches": [
-                "<all_urls>"
-            ]
-        }
+  "name": "capstone_adblock",
+  "version": "1.0",
+  "description": "Remove Adware with Chrome extension",
+  "manifest_version": 3,
+  "host_permissions": [
+    "https://easylist.to/easylist/easylist.txt",
+    "https://easylist.to/easylist/easyprivacy.txt",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "js/service-worker.js"
+  },
+  "minimum_chrome_version": "122",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "block_rule",
+        "enabled": true,
+        "path": "ruleset/block2.json"
+      }
     ]
+  },
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "match_about_blank": true,
+      "run_at": "document_idle",
+      "matches": ["<all_urls>"],
+      "js": ["js/constant/constant.js", "js/cosmetic-filter/core.js"]
+    }
+  ],
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "declarativeNetRequestWithHostAccess",
+    "storage",
+    "scripting",
+    "tabs",
+    "webNavigation",
+    "webRequest"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/images.png",
+      "48": "icons/images.png",
+      "128": "icons/images.png"
+    }
+  },
+  "icons": {
+    "16": "icons/images.png",
+    "48": "icons/images.png",
+    "128": "icons/images.png"
+  },
+    {
+      "resources": ["setting.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
