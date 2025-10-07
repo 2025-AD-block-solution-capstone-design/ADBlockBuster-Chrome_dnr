@@ -59,11 +59,11 @@ async function loadRulesetsFromIndexedDB() {
 // IndexedDB에서 룰셋을 로드하고 DNR 룰을 업데이트하는 함수
 async function updateDynamicRulesFromIndexedDB() {
     try {
-        console.log('IndexedDB에서 룰셋 로드 중...');
+        console.log('📊 IndexedDB에서 룰셋 로드 중...');
         const loadResult = await loadRulesetsFromIndexedDB();
         
         if (!loadResult.success || !loadResult.rulesets) {
-            console.log('IndexedDB에 룰셋이 없어서 기본 파일 사용');
+            console.log('⚠️ IndexedDB에 룰셋이 없어서 기본 파일 사용');
             return {success: false, message: 'No rulesets in IndexedDB'};
         }
         
@@ -77,7 +77,7 @@ async function updateDynamicRulesFromIndexedDB() {
             await chrome.declarativeNetRequest.updateDynamicRules({
                 removeRuleIds: ruleIdsToRemove
             });
-            console.log(`기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
+            console.log(`🗑️ 기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
         }
         
         // 새로운 룰셋 추가
@@ -87,7 +87,8 @@ async function updateDynamicRulesFromIndexedDB() {
             await chrome.declarativeNetRequest.updateDynamicRules({
                 addRules: allRules
             });
-            console.log(`새로운 동적 룰 ${allRules.length}개 추가됨 (EasyList: ${easylist?.length || 0}, EasyPrivacy: ${easyprivacy?.length || 0})`);
+            console.log(`✅ IndexedDB 룰셋 ${allRules.length}개 적용됨 (EasyList: ${easylist?.length || 0}, EasyPrivacy: ${easyprivacy?.length || 0})`);
+            console.log('🎯 현재 사용 중인 룰셋: IndexedDB (업데이트된 룰셋)');
         }
         
         return {
@@ -98,7 +99,7 @@ async function updateDynamicRulesFromIndexedDB() {
         };
         
     } catch (error) {
-        console.error('DNR 룰 업데이트 실패:', error);
+        console.error('❌ DNR 룰 업데이트 실패:', error);
         return {success: false, error: error.message};
     }
 }
@@ -109,7 +110,7 @@ chrome.runtime.onInstalled.addListener(initializeRulesets);
 
 // 룰셋 초기화 함수
 async function initializeRulesets() {
-    console.log('룰셋 초기화 시작...');
+    console.log('🔄 룰셋 초기화 시작...');
     
     try {
         // 1. IndexedDB에 룰셋이 있는지 확인
@@ -117,24 +118,47 @@ async function initializeRulesets() {
         
         if (indexedDBResult.success && indexedDBResult.rulesets) {
             // IndexedDB에 룰셋이 있으면 사용
-            console.log('IndexedDB에서 룰셋 발견, 업데이트된 룰셋 사용');
+            console.log('✅ IndexedDB에서 룰셋 발견 - 업데이트된 룰셋 사용');
+            console.log('📊 IndexedDB 룰셋 정보:', {
+                easylist: indexedDBResult.rulesets.easylist?.length || 0,
+                easyprivacy: indexedDBResult.rulesets.easyprivacy?.length || 0,
+                cosmetic: indexedDBResult.rulesets.cosmetic?.length || 0,
+                timestamp: new Date(indexedDBResult.rulesets.timestamp).toLocaleString()
+            });
             await updateDynamicRulesFromIndexedDB();
+            
+            // 상태를 Chrome Storage에 저장
+            await chrome.storage.local.set({
+                rulesetSource: 'indexeddb',
+                lastRulesetLoadTime: Date.now()
+            });
         } else {
             // IndexedDB에 룰셋이 없으면 기본 파일 사용
-            console.log('IndexedDB에 룰셋 없음, 기본 파일 룰셋 사용');
+            console.log('📁 IndexedDB에 룰셋 없음 - 기본 파일 룰셋 사용');
             await loadDefaultStaticRulesets();
+            
+            // 상태를 Chrome Storage에 저장
+            await chrome.storage.local.set({
+                rulesetSource: 'static',
+                lastRulesetLoadTime: Date.now()
+            });
         }
     } catch (error) {
-        console.error('룰셋 초기화 실패:', error);
+        console.error('❌ 룰셋 초기화 실패:', error);
         // 실패 시 기본 파일 사용
         await loadDefaultStaticRulesets();
+        
+        await chrome.storage.local.set({
+            rulesetSource: 'static-fallback',
+            lastRulesetLoadTime: Date.now()
+        });
     }
 }
 
 // 기본 정적 룰셋 로드 함수
 async function loadDefaultStaticRulesets() {
     try {
-        console.log('기본 정적 룰셋 로드 중...');
+        console.log('📁 기본 정적 룰셋 로드 중...');
         
         // 기본 JSON 파일들 로드
         const [block1, block2] = await Promise.all([
@@ -150,6 +174,7 @@ async function loadDefaultStaticRulesets() {
             await chrome.declarativeNetRequest.updateDynamicRules({
                 removeRuleIds: ruleIdsToRemove
             });
+            console.log(`🗑️ 기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
         }
         
         // 기본 룰셋 추가
@@ -159,11 +184,12 @@ async function loadDefaultStaticRulesets() {
             await chrome.declarativeNetRequest.updateDynamicRules({
                 addRules: allRules
             });
-            console.log(`기본 룰셋 ${allRules.length}개 로드됨 (Block1: ${block1?.length || 0}, Block2: ${block2?.length || 0})`);
+            console.log(`✅ 기본 정적 룰셋 ${allRules.length}개 로드됨 (Block1: ${block1?.length || 0}, Block2: ${block2?.length || 0})`);
+            console.log('🏠 현재 사용 중인 룰셋: 정적 파일 (ruleset/ 디렉터리)');
         }
         
     } catch (error) {
-        console.error('기본 룰셋 로드 실패:', error);
+        console.error('❌ 기본 룰셋 로드 실패:', error);
     }
 }
 
@@ -355,12 +381,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // 룰셋 업데이트 메시지 처리 (새로 추가)
     if (message.action === 'rulesUpdated') {
-        console.log('룰셋 업데이트 알림 받음, IndexedDB에서 새 룰셋 로드 시작...');
-        updateDynamicRulesFromIndexedDB().then(result => {
-            console.log('DNR 룰 업데이트 완료:', result);
-            sendResponse(result);
+        console.log('📢 룰셋 업데이트 알림 받음 - IndexedDB에서 새 룰셋 로드 시작...');
+        
+        // DNR 룰셋 업데이트
+        updateDynamicRulesFromIndexedDB().then(async (dnrResult) => {
+            // 코스메틱 룰셋도 업데이트
+            await loadCosmeticRuleset();
+            
+            if (dnrResult.success) {
+                console.log('🎉 전체 룰셋 업데이트 완료 (DNR + 코스메틱)');
+                console.log('🔄 룰셋 소스가 정적 파일에서 IndexedDB로 전환됨');
+                
+                // 상태 업데이트 - 성공 플래그도 함께 설정
+                chrome.storage.local.set({
+                    rulesetSource: 'indexeddb',
+                    lastRulesetLoadTime: Date.now(),
+                    lastUpdateSuccess: true
+                });
+                sendResponse({...dnrResult, cosmeticUpdated: true});
+            } else {
+                console.error('❌ DNR 룰 업데이트 실패:', dnrResult);
+                // 실패 시에는 lastUpdateSuccess를 변경하지 않음 (기존 상태 유지)
+                sendResponse(dnrResult);
+            }
         }).catch(error => {
-            console.error('DNR 룰 업데이트 실패:', error);
+            console.error('❌ 룰셋 업데이트 실패:', error);
+            // 실패 시에는 lastUpdateSuccess를 변경하지 않음 (기존 상태 유지)
             sendResponse({success: false, error: error.message});
         });
         return true;
@@ -381,21 +427,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const COSMETIC_JSON_URL = chrome.runtime.getURL('ruleset/cosmeticList-selector.json');
 let COSMETIC_RULESET = [];
 
-(async function loadRuleset() {
+// 코스메틱 룰셋을 로드하는 함수 (IndexedDB 우선, 없으면 정적 파일)
+async function loadCosmeticRuleset() {
     try {
-        console.log('Loading cosmetic ruleset...');
-        const raw = await (await fetch(COSMETIC_JSON_URL)).json();
-        COSMETIC_RULESET = raw.map(rule => ({
-            selector: rule.selector,
-            domain: rule.domain,
-            action: {type: 'hide'} // 직접 'hide' 사용
-        }));
-        console.log('[Cosmetic] ruleset loaded');
+        console.log('🎨 코스메틱 룰셋 로드 시작...');
+        
+        // 1. IndexedDB에서 먼저 시도
+        const indexedDBResult = await loadRulesetsFromIndexedDB();
+        
+        if (indexedDBResult.success && indexedDBResult.rulesets && indexedDBResult.rulesets.cosmetic) {
+            // IndexedDB에 코스메틱 룰셋이 있으면 사용
+            console.log('✅ IndexedDB에서 코스메틱 룰셋 로드');
+            COSMETIC_RULESET = indexedDBResult.rulesets.cosmetic.map(rule => ({
+                selector: rule.selector,
+                domain: rule.domain,
+                action: {type: 'hide'}
+            }));
+            console.log(`🎯 코스메틱 룰셋 ${COSMETIC_RULESET.length}개 로드됨 (IndexedDB)`);
+        } else {
+            // IndexedDB에 없으면 정적 파일 사용
+            console.log('📁 IndexedDB에 코스메틱 룰셋 없음 - 정적 파일 사용');
+            const raw = await (await fetch(COSMETIC_JSON_URL)).json();
+            COSMETIC_RULESET = raw.map(rule => ({
+                selector: rule.selector,
+                domain: rule.domain,
+                action: {type: 'hide'}
+            }));
+            console.log(`🏠 코스메틱 룰셋 ${COSMETIC_RULESET.length}개 로드됨 (정적 파일)`);
+        }
     } catch (err) {
-        console.error('[Cosmetic] failed to load ruleset', err);
-        COSMETIC_RULESET = [];
+        console.error('❌ 코스메틱 룰셋 로드 실패:', err);
+        // 실패 시 정적 파일 폴백
+        try {
+            const raw = await (await fetch(COSMETIC_JSON_URL)).json();
+            COSMETIC_RULESET = raw.map(rule => ({
+                selector: rule.selector,
+                domain: rule.domain,
+                action: {type: 'hide'}
+            }));
+            console.log(`♻️ 코스메틱 룰셋 ${COSMETIC_RULESET.length}개 로드됨 (폴백)`);
+        } catch (fallbackErr) {
+            console.error('❌ 코스메틱 룰셋 폴백도 실패:', fallbackErr);
+            COSMETIC_RULESET = [];
+        }
     }
-})();
+}
+
+// 초기 로드
+loadCosmeticRuleset();
 
 // 코스메틱 필터 룰셋 리스너 추가
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

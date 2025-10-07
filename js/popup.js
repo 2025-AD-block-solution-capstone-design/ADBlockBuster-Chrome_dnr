@@ -24,7 +24,6 @@ const whitelistToggle = document.getElementById("whitelistToggle");
 const md5 = SparkMD5;
 
 async function checkForRuleUpdates() {
-
   // setting.html의 업데이트 탭으로 이동
   chrome.tabs.create({ 
     url: chrome.runtime.getURL("setting.html#update") 

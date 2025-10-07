@@ -306,6 +306,20 @@
                         Chrome Storage: 해시값 저장 (10MB 제한) | IndexedDB: 룰셋 데이터 저장 (용량 제한 없음)
                       </div>
                     </div>
+                    
+                    <!-- 현재 룰셋 상태 표시 (개발용) -->
+                    <div class="mt-3 p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25">
+                      <div class="small">
+                        <i class="bi bi-info-circle me-1 text-info"></i>
+                        <strong>현재 룰셋 상태 (개발용)</strong>
+                      </div>
+                      <div class="small mt-1">
+                        <span id="rulesetStatus" class="text-muted">룰셋 상태 확인 중...</span>
+                      </div>
+                      <div class="small text-muted mt-1" id="rulesetDetails">
+                        룰셋 세부 정보 로딩 중...
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

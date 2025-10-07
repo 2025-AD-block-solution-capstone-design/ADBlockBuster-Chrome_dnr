@@ -53,37 +53,89 @@ class RulesetDB {
   async saveRulesets(easylist, easyprivacy, cosmetic) {
     if (!this.db) await this.init();
     
-    // 먼저 기존 데이터 삭제 (조건 1 충족)
-    await this.clearAllRulesets();
-    
-    // 데이터베이스 연결 상태 재확인
-    if (!this.db || !this.db.objectStoreNames.contains('rulesets')) {
-      await this.init(); // 재초기화 시도
+    // 업데이트 실패 시를 대비해 기존 데이터 백업
+    let existingData = null;
+    try {
+      existingData = await this.getRulesets();
+      console.log('💾 기존 룰셋 데이터 백업 완료');
+    } catch (error) {
+      console.log('ℹ️ 기존 데이터 없음 (첫 업데이트)');
     }
     
-    // 새로운 트랜잭션으로 데이터 저장
+    try {
+      // 먼저 기존 데이터 삭제 (조건 1 충족)
+      await this.clearAllRulesets();
+      console.log('🗑️ 기존 IndexedDB 룰셋 삭제 완료');
+      
+      // 데이터베이스 연결 상태 재확인
+      if (!this.db || !this.db.objectStoreNames.contains('rulesets')) {
+        await this.init(); // 재초기화 시도
+      }
+      
+      // 새로운 트랜잭션으로 데이터 저장
+      const transaction = this.db.transaction(['rulesets'], 'readwrite');
+      const store = transaction.objectStore('rulesets');
+      
+      const timestamp = Date.now();
+      const rulesetData = {
+        id: 'current',
+        easylist: easylist,
+        easyprivacy: easyprivacy,
+        cosmetic: cosmetic,
+        timestamp: timestamp,
+        version: '1.0'
+      };
+      
+      return new Promise((resolve, reject) => {
+        const request = store.add(rulesetData);
+        request.onsuccess = () => {
+          console.log('✅ IndexedDB에 새 룰셋 저장 완료:', {
+            easylistRules: easylist?.length || 0,
+            easyprivacyRules: easyprivacy?.length || 0,
+            cosmeticRules: cosmetic?.length || 0,
+            timestamp: new Date(timestamp).toLocaleString()
+          });
+          resolve(request.result);
+        };
+        request.onerror = () => {
+          console.error('❌ 새 룰셋 저장 실패:', request.error);
+          // 실패 시 기존 데이터 복원 시도
+          if (existingData) {
+            console.log('🔄 업데이트 실패 - 기존 데이터 복원 시도');
+            this.restoreBackupData(existingData).catch(restoreError => {
+              console.error('❌ 기존 데이터 복원도 실패:', restoreError);
+            });
+          }
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error('❌ 룰셋 저장 프로세스 실패:', error);
+      // 실패 시 기존 데이터 복원 시도
+      if (existingData) {
+        console.log('🔄 업데이트 실패 - 기존 데이터 복원 시도');
+        try {
+          await this.restoreBackupData(existingData);
+        } catch (restoreError) {
+          console.error('❌ 기존 데이터 복원도 실패:', restoreError);
+        }
+      }
+      throw error;
+    }
+  }
+
+  // 백업 데이터 복원 함수
+  async restoreBackupData(backupData) {
+    if (!backupData) return;
+    
     const transaction = this.db.transaction(['rulesets'], 'readwrite');
     const store = transaction.objectStore('rulesets');
     
-    const timestamp = Date.now();
-    const rulesetData = {
-      id: 'current',
-      easylist: easylist,
-      easyprivacy: easyprivacy,
-      cosmetic: cosmetic,
-      timestamp: timestamp,
-      version: '1.0'
-    };
-    
     return new Promise((resolve, reject) => {
-      const request = store.add(rulesetData);
+      const request = store.add(backupData);
       request.onsuccess = () => {
-        console.log('IndexedDB에 룰셋 저장 완료:', {
-          easylistRules: easylist?.length || 0,
-          easyprivacyRules: easyprivacy?.length || 0,
-          cosmeticRules: cosmetic?.length || 0
-        });
-        resolve(request.result);
+        console.log('♻️ 기존 데이터 복원 완료');
+        resolve();
       };
       request.onerror = () => reject(request.error);
     });
@@ -278,10 +330,95 @@ async function updateStorageInfo() {
       storageInfo.className = chromeStoragePercent > 80 ? 'text-danger' : 'text-muted';
     }
     
+    // 룰셋 상태 표시 업데이트
+    await updateRulesetStatus();
+    
     console.log(`Chrome Storage: ${chromeStorageMB}MB (${chromeStoragePercent}%)`);
     console.log(`IndexedDB: ${indexedDBInfo.usedMB}MB`);
   } catch (error) {
     console.error('스토리지 정보 업데이트 오류:', error);
+  }
+}
+
+// 룰셋 상태 표시 업데이트 (개발용)
+async function updateRulesetStatus() {
+  try {
+    const statusElement = document.getElementById('rulesetStatus');
+    const detailsElement = document.getElementById('rulesetDetails');
+    
+    if (!statusElement || !detailsElement) return;
+    
+    // Chrome Storage에서 룰셋 소스 정보 가져오기
+    const storageData = await chrome.storage.local.get([
+      'rulesetSource', 
+      'lastRulesetLoadTime', 
+      'lastUpdateSuccess',
+      'useIndexedDB'
+    ]);
+    
+    const source = storageData.rulesetSource || 'unknown';
+    const lastLoad = storageData.lastRulesetLoadTime;
+    const lastSuccess = storageData.lastUpdateSuccess;
+    const useIndexedDB = storageData.useIndexedDB;
+    
+    // IndexedDB에서 룰셋 정보 가져오기
+    let indexedDBRulesets = null;
+    try {
+      indexedDBRulesets = await rulesetDB.getRulesets();
+    } catch (error) {
+      console.log('IndexedDB 룰셋 조회 실패:', error);
+    }
+    
+    // 상태 메시지 생성
+    let statusText = '';
+    let statusClass = '';
+    
+    if (source === 'static') {
+      statusText = '🏠 정적 파일 사용 중 (ruleset/ 디렉터리)';
+      statusClass = 'text-primary';
+    } else if (source === 'indexeddb') {
+      statusText = '🎯 IndexedDB 사용 중 (업데이트된 룰셋)';
+      statusClass = 'text-success';
+    } else if (source === 'static-fallback') {
+      statusText = '⚠️ 정적 파일 사용 중 (IndexedDB 오류로 인한 폴백)';
+      statusClass = 'text-warning';
+    } else {
+      statusText = '❓ 룰셋 상태 불명';
+      statusClass = 'text-muted';
+    }
+    
+    statusElement.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+    
+    // 세부 정보 생성
+    let details = [];
+    
+    if (lastLoad) {
+      details.push(`마지막 로드: ${new Date(lastLoad).toLocaleString()}`);
+    }
+    
+    if (lastSuccess !== undefined) {
+      details.push(`마지막 업데이트: ${lastSuccess ? '성공 ✅' : '실패 ❌'}`);
+    }
+    
+    if (indexedDBRulesets) {
+      details.push(`IndexedDB 룰셋: EasyList ${indexedDBRulesets.easylist?.length || 0}개, EasyPrivacy ${indexedDBRulesets.easyprivacy?.length || 0}개`);
+      details.push(`IndexedDB 저장 시간: ${new Date(indexedDBRulesets.timestamp).toLocaleString()}`);
+    } else {
+      details.push('IndexedDB: 저장된 룰셋 없음');
+    }
+    
+    if (useIndexedDB) {
+      details.push('IndexedDB 플래그: 활성화');
+    }
+    
+    detailsElement.textContent = details.join(' | ');
+    
+  } catch (error) {
+    console.error('룰셋 상태 업데이트 오류:', error);
+    const statusElement = document.getElementById('rulesetStatus');
+    if (statusElement) {
+      statusElement.innerHTML = '<span class="text-danger">❌ 상태 확인 실패</span>';
+    }
   }
 }
 
@@ -356,15 +493,27 @@ async function performUpdate() {
       [PRIVACY_HASH_KEY]: md5.hash(privacyTxt),
       [LAST_CHECK_DATE_KEY]: new Date().toISOString().slice(0, 10),
       lastUpdateTimestamp: Date.now(),
-      useIndexedDB: true // IndexedDB 사용 플래그
+      useIndexedDB: true, // IndexedDB 사용 플래그
+      lastUpdateSuccess: true // 업데이트 성공 플래그 추가
     });
 
     chrome.runtime.sendMessage({ action: "rulesUpdated" });
 
     updateStatus.textContent = "업데이트 완료 ✅ (IndexedDB에 저장됨)";
     availableContainer.hidden = true;
+    
+    // 룰셋 상태 즉시 업데이트
+    await updateRulesetStatus();
   } catch (err) {
     updateStatus.textContent = `업데이트 실패 ❌: ${err.message}`;
+    
+    // 업데이트 실패 플래그 설정
+    await chrome.storage.local.set({
+      lastUpdateSuccess: false
+    });
+    
+    // 룰셋 상태 즉시 업데이트
+    await updateRulesetStatus();
   } finally {
     performBtn.disabled = false;
   }
