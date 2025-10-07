@@ -27,12 +27,15 @@ class RulesetDB {
       const request = indexedDB.open(this.dbName, this.version);
       
       request.onerror = () => reject(request.error);
+      
       request.onsuccess = () => {
         this.db = request.result;
+        console.log('IndexedDB 연결 성공');
         resolve(this.db);
       };
       
       request.onupgradeneeded = (event) => {
+        console.log('IndexedDB 스키마 업그레이드 중...');
         const db = event.target.result;
         
         // rulesets 스토어 생성 (기존 데이터 자동 삭제)
@@ -42,6 +45,7 @@ class RulesetDB {
         
         const store = db.createObjectStore('rulesets', { keyPath: 'id' });
         store.createIndex('timestamp', 'timestamp', { unique: false });
+        console.log('IndexedDB 스키마 생성 완료');
       };
     });
   }
@@ -51,6 +55,11 @@ class RulesetDB {
     
     // 먼저 기존 데이터 삭제 (조건 1 충족)
     await this.clearAllRulesets();
+    
+    // 데이터베이스 연결 상태 재확인
+    if (!this.db || !this.db.objectStoreNames.contains('rulesets')) {
+      await this.init(); // 재초기화 시도
+    }
     
     // 새로운 트랜잭션으로 데이터 저장
     const transaction = this.db.transaction(['rulesets'], 'readwrite');
@@ -83,6 +92,11 @@ class RulesetDB {
   async getRulesets() {
     if (!this.db) await this.init();
     
+    // 데이터베이스 연결 상태 확인
+    if (!this.db || !this.db.objectStoreNames.contains('rulesets')) {
+      await this.init(); // 재초기화 시도
+    }
+    
     const transaction = this.db.transaction(['rulesets'], 'readonly');
     const store = transaction.objectStore('rulesets');
     
@@ -95,6 +109,12 @@ class RulesetDB {
 
   async clearAllRulesets() {
     if (!this.db) await this.init();
+    
+    // 데이터베이스 연결 상태 확인
+    if (!this.db || this.db.readyState === 'done' || !this.db.objectStoreNames.contains('rulesets')) {
+      console.warn('IndexedDB가 준비되지 않았거나 rulesets 스토어가 없습니다.');
+      await this.init(); // 재초기화 시도
+    }
     
     const transaction = this.db.transaction(['rulesets'], 'readwrite');
     const store = transaction.objectStore('rulesets');

@@ -1,5 +1,172 @@
 console.log('Service worker started.');
 
+// IndexedDB 연결 헬퍼 함수
+function openIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('ADBlockBusterRulesets', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            // rulesets 스토어 생성 (기존 데이터 자동 삭제)
+            if (db.objectStoreNames.contains('rulesets')) {
+                db.deleteObjectStore('rulesets');
+            }
+            
+            const store = db.createObjectStore('rulesets', { keyPath: 'id' });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            console.log('IndexedDB 스키마 생성 완료');
+        };
+    });
+}
+
+// IndexedDB에서 룰셋을 로드하는 함수
+async function loadRulesetsFromIndexedDB() {
+    try {
+        // IndexedDB 연결
+        const db = await openIndexedDB();
+        const transaction = db.transaction(['rulesets'], 'readonly');
+        const store = transaction.objectStore('rulesets');
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get('current');
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result) {
+                    console.log('IndexedDB에서 룰셋 로드 성공:', {
+                        easylistRules: result.easylist?.length || 0,
+                        easyprivacyRules: result.easyprivacy?.length || 0,
+                        cosmeticRules: result.cosmetic?.length || 0,
+                        timestamp: new Date(result.timestamp).toLocaleString()
+                    });
+                    resolve({success: true, rulesets: result});
+                } else {
+                    console.log('IndexedDB에 저장된 룰셋이 없습니다.');
+                    resolve({success: false, message: 'No rulesets found'});
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('IndexedDB 접근 오류:', error);
+        return {success: false, error: error.message};
+    }
+}
+
+// IndexedDB에서 룰셋을 로드하고 DNR 룰을 업데이트하는 함수
+async function updateDynamicRulesFromIndexedDB() {
+    try {
+        console.log('IndexedDB에서 룰셋 로드 중...');
+        const loadResult = await loadRulesetsFromIndexedDB();
+        
+        if (!loadResult.success || !loadResult.rulesets) {
+            console.log('IndexedDB에 룰셋이 없어서 기본 파일 사용');
+            return {success: false, message: 'No rulesets in IndexedDB'};
+        }
+        
+        const { easylist, easyprivacy } = loadResult.rulesets;
+        
+        // 기존 동적 룰 모두 제거
+        const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+        const ruleIdsToRemove = existingRules.map(rule => rule.id);
+        
+        if (ruleIdsToRemove.length > 0) {
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: ruleIdsToRemove
+            });
+            console.log(`기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
+        }
+        
+        // 새로운 룰셋 추가
+        const allRules = [...(easylist || []), ...(easyprivacy || [])];
+        
+        if (allRules.length > 0) {
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                addRules: allRules
+            });
+            console.log(`새로운 동적 룰 ${allRules.length}개 추가됨 (EasyList: ${easylist?.length || 0}, EasyPrivacy: ${easyprivacy?.length || 0})`);
+        }
+        
+        return {
+            success: true, 
+            rulesAdded: allRules.length,
+            easylistRules: easylist?.length || 0,
+            easyprivacyRules: easyprivacy?.length || 0
+        };
+        
+    } catch (error) {
+        console.error('DNR 룰 업데이트 실패:', error);
+        return {success: false, error: error.message};
+    }
+}
+
+// 서비스 워커 시작 시 룰셋 초기화
+chrome.runtime.onStartup.addListener(initializeRulesets);
+chrome.runtime.onInstalled.addListener(initializeRulesets);
+
+// 룰셋 초기화 함수
+async function initializeRulesets() {
+    console.log('룰셋 초기화 시작...');
+    
+    try {
+        // 1. IndexedDB에 룰셋이 있는지 확인
+        const indexedDBResult = await loadRulesetsFromIndexedDB();
+        
+        if (indexedDBResult.success && indexedDBResult.rulesets) {
+            // IndexedDB에 룰셋이 있으면 사용
+            console.log('IndexedDB에서 룰셋 발견, 업데이트된 룰셋 사용');
+            await updateDynamicRulesFromIndexedDB();
+        } else {
+            // IndexedDB에 룰셋이 없으면 기본 파일 사용
+            console.log('IndexedDB에 룰셋 없음, 기본 파일 룰셋 사용');
+            await loadDefaultStaticRulesets();
+        }
+    } catch (error) {
+        console.error('룰셋 초기화 실패:', error);
+        // 실패 시 기본 파일 사용
+        await loadDefaultStaticRulesets();
+    }
+}
+
+// 기본 정적 룰셋 로드 함수
+async function loadDefaultStaticRulesets() {
+    try {
+        console.log('기본 정적 룰셋 로드 중...');
+        
+        // 기본 JSON 파일들 로드
+        const [block1, block2] = await Promise.all([
+            fetch(chrome.runtime.getURL('ruleset/block1.json')).then(r => r.json()),
+            fetch(chrome.runtime.getURL('ruleset/block2.json')).then(r => r.json())
+        ]);
+        
+        // 기존 동적 룰 제거
+        const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+        const ruleIdsToRemove = existingRules.map(rule => rule.id);
+        
+        if (ruleIdsToRemove.length > 0) {
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: ruleIdsToRemove
+            });
+        }
+        
+        // 기본 룰셋 추가
+        const allRules = [...(block1 || []), ...(block2 || [])];
+        
+        if (allRules.length > 0) {
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                addRules: allRules
+            });
+            console.log(`기본 룰셋 ${allRules.length}개 로드됨 (Block1: ${block1?.length || 0}, Block2: ${block2?.length || 0})`);
+        }
+        
+    } catch (error) {
+        console.error('기본 룰셋 로드 실패:', error);
+    }
+}
+
 // 차단 카운트 추적 (새로운 분류 체계)
 let dnrBlockCount = 0; // DNR을 통한 네트워크 차단
 let cosmeticBlockCount = 0; // 코스메틱 필터링 차단
@@ -186,6 +353,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     
+    // 룰셋 업데이트 메시지 처리 (새로 추가)
+    if (message.action === 'rulesUpdated') {
+        console.log('룰셋 업데이트 알림 받음, IndexedDB에서 새 룰셋 로드 시작...');
+        updateDynamicRulesFromIndexedDB().then(result => {
+            console.log('DNR 룰 업데이트 완료:', result);
+            sendResponse(result);
+        }).catch(error => {
+            console.error('DNR 룰 업데이트 실패:', error);
+            sendResponse({success: false, error: error.message});
+        });
+        return true;
+    }
+    
     // IndexedDB에서 룰셋 로드 요청 처리 (새로 추가)
     if (message.type === 'LOAD_RULESETS_FROM_INDEXEDDB') {
         loadRulesetsFromIndexedDB().then(result => {
@@ -197,49 +377,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 });
-
-// IndexedDB에서 룰셋을 로드하는 함수
-async function loadRulesetsFromIndexedDB() {
-    try {
-        // IndexedDB 연결
-        const db = await openIndexedDB();
-        const transaction = db.transaction(['rulesets'], 'readonly');
-        const store = transaction.objectStore('rulesets');
-        
-        return new Promise((resolve, reject) => {
-            const request = store.get('current');
-            request.onsuccess = () => {
-                const result = request.result;
-                if (result) {
-                    console.log('IndexedDB에서 룰셋 로드 성공:', {
-                        easylistRules: result.easylist?.length || 0,
-                        easyprivacyRules: result.easyprivacy?.length || 0,
-                        cosmeticRules: result.cosmetic?.length || 0,
-                        timestamp: new Date(result.timestamp).toLocaleString()
-                    });
-                    resolve({success: true, rulesets: result});
-                } else {
-                    console.log('IndexedDB에 저장된 룰셋이 없습니다.');
-                    resolve({success: false, message: 'No rulesets found'});
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
-    } catch (error) {
-        console.error('IndexedDB 접근 오류:', error);
-        return {success: false, error: error.message};
-    }
-}
-
-// IndexedDB 연결 헬퍼 함수
-function openIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open('ADBlockBusterRulesets', 1);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
-
 
 const COSMETIC_JSON_URL = chrome.runtime.getURL('ruleset/cosmeticList-selector.json');
 let COSMETIC_RULESET = [];
