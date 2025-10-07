@@ -1,194 +1,303 @@
+/* Bootstrap 기반 설정 페이지 스타일 */
 body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
-  font-family: 'Segoe UI', sans-serif;
+  padding: 0;
 }
 
-.settings-wrapper {
-  display: flex;
-  height: 100vh;
+/* 전체 컨테이너 높이 설정 */
+.container-fluid {
+  min-height: 100vh !important;
+  padding: 0 !important;
 }
 
-.sidebar {
-  width: 220px;
-  background-color: #1e1e2f;
-  color: white;
-  padding: 20px;
-  box-sizing: border-box;
+/* 메인 레이아웃 row만 전체 높이 사용 */
+.container-fluid > .row {
+  min-height: 100vh !important;
+  margin: 0 !important;
 }
 
-.logo {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 30px;
+/* 업데이트 섹션 row는 높이 제한 */
+.row.mb-4 {
+  min-height: auto !important;
+  margin-bottom: 1.5rem !important;
 }
 
-.menu {
-  display: flex;
-  flex-direction: column;
+/* 기타 내부 row들은 자동 높이 */
+.py-4 .row {
+  min-height: auto !important;
 }
 
-.menu-item {
-  background: none;
-  border: none;
-  color: white;
-  text-align: left;
-  padding: 10px 0;
-  cursor: pointer;
-  font-size: 16px;
+/* 사이드바 스타일 */
+.bg-dark {
+  background-color: #1e1e2f !important;
+  min-height: 100vh !important;
 }
 
-.menu-item:hover {
-  color: #00aaff;
+/* 사이드바 컬럼 설정 */
+.col-md-3.col-lg-2 {
+  min-height: 100vh !important;
+  padding: 0 !important;
 }
 
-.content {
-  flex-grow: 1;
-  padding: 30px;
-  background-color: #f4f4f4;
-}
-
-.setting-section {
-  margin-bottom: 30px;
-}
-
-.toggle-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 26px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
+/* 사이드바가 콘텐츠에 따라 늘어나도록 설정 */
+.col-md-3.col-lg-2::before {
+  content: '';
   position: absolute;
-  cursor: pointer;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
-  transition: 0.4s;
-  border-radius: 34px;
+  background-color: #1e1e2f;
+  z-index: -1;
+  min-height: 100vh;
 }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.4s;
-  border-radius: 50%;
+/* 사이드바 내부 flex 컨테이너 */
+.d-flex.flex-column.h-100 {
+  min-height: 100vh !important;
+  height: 100vh;
+  background-color: #1e1e2f;
 }
 
-input:checked + .slider {
-  background-color: #2196F3;
+.nav-link {
+  border-radius: 8px !important;
+  margin-bottom: 4px;
+  transition: all 0.2s ease-in-out;
+  padding: 0.75rem 1rem !important;
 }
 
-input:checked + .slider:before {
-  transform: translateX(24px);
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #00aaff !important;
 }
 
-.whitelist-form {
-  display: flex;
-  margin-top: 10px;
+.nav-link.active {
+  background-color: #0d6efd !important;
+  color: white !important;
 }
 
-.whitelist-form input {
-  flex-grow: 1;
-  padding: 5px;
-  font-size: 14px;
+/* 네비게이션 컨테이너 패딩 */
+.nav-pills {
+  padding: 1rem;
 }
 
-.whitelist-form button {
-  margin-left: 10px;
-  padding: 6px 12px;
-  font-size: 14px;
-  background-color: #2196F3;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 4px;
+/* 카드 스타일 개선 */
+.card {
+  border: 1px solid rgba(0,0,0,.125);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0,0,0,.125);
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* 스위치 스타일 */
+.form-check-input:checked {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.form-check-input:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* 화이트리스트 스타일 */
 .whitelist-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 12px;
+  max-height: 60vh; /* 뷰포트 높이의 60%까지 확장 */
+  overflow-y: auto;
+  min-height: 200px; /* 최소 높이 설정 */
 }
 
-.whitelist-list li {
+.whitelist-item {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #ffffff;
-  margin-bottom: 10px;
-  padding: 12px 18px;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 15px;
-  color: #333;
-  transition: transform 0.15s ease, background-color 0.2s ease;
+  transition: all 0.2s ease-in-out;
 }
 
-.whitelist-list li:hover {
-  background-color: #f5f5f5;
-  transform: translateY(-1px);
+.whitelist-item:hover {
+  background-color: #f8f9fa;
+  border-color: #0d6efd;
+  transform: translateX(4px);
 }
 
 .site-domain {
+  font-weight: 500;
+  color: #495057;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 10px;
+  margin-right: 12px;
+  word-break: break-all;
 }
 
 .remove-btn {
-  background-color: #ff4d4f;
+  background-color: #dc3545;
   border: none;
   color: white;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .remove-btn:hover {
-  background-color: #d9363e;
+  background-color: #c82333;
 }
 
-.logo {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 30px;
+/* 버튼 스타일 개선 */
+.btn {
+  transition: all 0.2s ease-in-out;
 }
 
-.logo-img {
-  width: 28px;
-  height: 28px;
+.btn:hover {
+  transform: translateY(-1px);
 }
 
-.logo-text {
+/* 전체 삭제 버튼 스타일 */
+#clearAllWhitelistBtn {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease-in-out;
+}
+
+#clearAllWhitelistBtn:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+/* 알림 스타일 */
+.alert {
+  border-radius: 8px;
+}
+
+/* 아이콘 크기 조정 */
+.bi {
+  font-size: 0.9em;
+}
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+  .col-md-3 {
+    display: none;
+  }
+  
+  .col-md-9 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .row {
+    min-height: auto;
+  }
+  
+  .bg-dark {
+    min-height: auto;
+    position: static;
+  }
+}
+
+/* 메인 콘텐츠 영역 */
+.col-md-9.col-lg-10 {
+  min-height: 100vh !important;
+  background-color: #f8f9fa !important;
+  padding: 2rem !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* 메인 콘텐츠 내부 컨테이너 */
+.col-md-9.col-lg-10 .py-4 {
+  height: auto !important;
+  min-height: auto !important;
+  padding: 1.5rem 0 !important;
+}
+
+/* 사이드바 내부 콘텐츠 정렬 */
+.d-flex.flex-column.h-100 {
+  min-height: 100vh;
+}
+
+/* 커스텀 스크롤바 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 섹션 간격 */
+.setting-section {
+  margin-bottom: 2rem !important;
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  clear: both !important;
+  display: block !important;
+}
+
+/* 화이트리스트 관리 섹션 특별 스타일 */
+#whitelist-management {
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  margin-top: 0 !important;
+  float: none !important;
+  clear: both !important;
+  z-index: 1 !important;
+}
+
+#block-settings {
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  margin-top: 0 !important;
+  float: none !important;
+  clear: both !important;
+  z-index: 1 !important;
+}
+
+/* 업데이트 섹션과 설정 섹션 사이 간격 조정 */
+.row.mb-4 + .setting-section {
+  margin-top: 1rem !important;
+}
+
+/* Bootstrap 기본 스타일 오버라이드 */
+.setting-section.d-none {
+  display: none !important;
+}
+
+.setting-section.d-block {
+  display: block !important;
 }

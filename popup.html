@@ -3,54 +3,90 @@
 <head>
   <meta charset="UTF-8" />
   <title>ADBlockBuster</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="css/popup.css" />
 </head>
-<body>
-<div class="header">
-  <img src="icons/images.png" alt="Logo" class="logo" />
-  <span class="title">ADBlockBuster</span>
-</div>
-
-<!-- 1) 업데이트 확인 버튼 -->
-<div id="updateContainer" class="update-container">
-  <button id="checkUpdateBtn">업데이트 확인</button>
-  <!-- 2) 업데이트 가능 시 노출되는 실행 여부 영역 -->
-  <div id="availableContainer" hidden>
-    <span id="updateLabel">새로운 룰셋이 있습니다.</span>
-    <button id="performUpdateBtn">업데이트 실행</button>
+<body class="bg-light">
+<div class="container-fluid p-3" style="width: 320px;">
+  <!-- Header -->
+  <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+    <img src="icons/images.png" alt="Logo" class="me-2" width="32" height="32" />
+    <h5 class="mb-0 fw-bold text-primary">ADBlockBuster</h5>
   </div>
-  <!-- 상태 메시지 -->
-  <div id="updateStatus" class="update-status"></div>
+
+  <!-- Update Section -->
+  <div id="updateContainer" class="mb-3">
+    <div class="d-grid">
+      <button id="checkUpdateBtn" class="btn btn-outline-info btn-sm">
+        <i class="bi bi-arrow-clockwise me-1"></i>업데이트 확인
+      </button>
+    </div>
+    
+    <!-- Update Available Container -->
+    <div id="availableContainer" class="mt-2" hidden>
+      <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+        <i class="bi bi-info-circle me-1"></i>
+        <span id="updateLabel">새로운 룰셋이 있습니다.</span>
+        <div class="mt-2">
+          <button id="performUpdateBtn" class="btn btn-success btn-sm">
+            <i class="bi bi-download me-1"></i>업데이트 실행
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Status Message -->
+    <div id="updateStatus" class="small text-muted mt-1"></div>
+  </div>
+
+  <!-- Toggle Controls -->
+  <div class="card mb-3">
+    <div class="card-body p-3">
+      <!-- Global Block Toggle -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <span class="fw-medium">광고 차단</span>
+          <div class="small text-muted">전체 광고 차단 기능</div>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="globalBlockToggle" role="switch">
+        </div>
+      </div>
+      
+      <!-- Whitelist Toggle -->
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-medium">현재 사이트 허용</span>
+          <div class="small text-muted">이 사이트에서 광고 허용</div>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="whitelistToggle" role="switch">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Card -->
+  <div class="card mb-3 text-center">
+    <div class="card-body p-3">
+      <div class="small text-muted mb-1">총 차단된 광고 수</div>
+      <div class="h4 mb-0 text-danger fw-bold" id="adCount">0</div>
+    </div>
+  </div>
+
+  <!-- Settings Button -->
+  <div class="d-grid">
+    <button class="btn btn-outline-secondary" id="goToSettingsBtn">
+      <i class="bi bi-gear me-1"></i>설정
+    </button>
+  </div>
 </div>
 
-<!-- 광고 전체 차단 토글 -->
-<div class="toggle-container">
-  <span class="toggle-label">광고 차단 비활성화</span>
-  <label class="toggle-switch">
-    <input type="checkbox" id="globalBlockToggle">
-    <span class="slider"></span>
-  </label>
-</div>
-
-<!-- 현재 사이트 허용 토글 -->
-<div class="toggle-container">
-  <span class="toggle-label">현재 사이트 허용</span>
-  <label class="toggle-switch">
-    <input type="checkbox" id="whitelistToggle">
-    <span class="slider"></span>
-  </label>
-</div>
-
-<div class="card">
-  <div class="card-title">총 차단된 광고 수</div>
-  <div class="ad-count" id="adCount">0</div>
-</div>
-
-<button class="settings-btn" id="goToSettingsBtn">설정</button>
-
-<!-- SparkMD5: MD5 해시 계산용 -->
 <script src="js/libs/spark-md5.min.js"></script>
-<!-- 팝업 로직 -->
+<!-- Bootstrap JS -->
+<script src="js/libs/bootstrap.bundle.min.js"></script>
+<!-- Main script -->
 <script type="module" src="js/popup.js"></script>
 </body>
 </html>

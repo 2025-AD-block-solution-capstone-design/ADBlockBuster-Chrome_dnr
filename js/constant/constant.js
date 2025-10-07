@@ -1,5 +1,5 @@
 // 1) 액션 이름 상수
-export const ACTIONS = {
+const ACTIONS = {
     HIDE:               'hide',
     VISIBILITY_HIDDEN:  'visibilityHidden',
     TRANSPARENT:        'transparent',
@@ -20,7 +20,7 @@ export const ACTIONS = {
 };
 
 // 2) 각 액션에 대응하는 핸들러 매핑
-export const ACTION_HANDLERS = {
+const ACTION_HANDLERS = {
     [ACTIONS.HIDE]: el => el.style.display = 'none',
     [ACTIONS.VISIBILITY_HIDDEN]: el => el.style.visibility = 'hidden',
     [ACTIONS.TRANSPARENT]: el => el.style.opacity = '0',

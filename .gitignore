@@ -1,2 +1,13 @@
-easylist.txt
-.idea
+
+# 메타데이터 및 생성된 파일들
+_metadata/
+
+# 외부 룰셋 파일들
+**/easylist/
+
+# IDE 설정 파일들
+.idea/
+.vscode/
+
+# GitHub 관련 파일들
+.github/
