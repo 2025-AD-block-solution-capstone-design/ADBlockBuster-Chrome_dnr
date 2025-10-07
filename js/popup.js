@@ -24,78 +24,18 @@ const whitelistToggle = document.getElementById("whitelistToggle");
 const md5 = SparkMD5;
 
 async function checkForRuleUpdates() {
-  updateStatus.textContent = "업데이트 확인 중…";
-  const { easylistHash, privacyHash } = await chrome.storage.local.get({
-    easylistHash: "",
-    privacyHash: "",
-  });
 
-  let oldEasyHash = easylistHash;
-  let oldPrivacyHash = privacyHash;
-
-  if (!oldEasyHash) {
-    const txt = await fetch(chrome.runtime.getURL(PACKAGED_EASY_PATH)).then(
-      (r) => r.text()
-    );
-    oldEasyHash = md5.hash(txt);
-  }
-  if (!oldPrivacyHash) {
-    const txt = await fetch(chrome.runtime.getURL(PACKAGED_PRIV_PATH)).then(
-      (r) => r.text()
-    );
-    oldPrivacyHash = md5.hash(txt);
-  }
-
-  const [easyTxt, privacyTxt] = await Promise.all([
-    fetch(EASYLIST_URL).then((r) => r.text()),
-    fetch(PRIVACY_URL).then((r) => r.text()),
-  ]);
-  const newEasyHash = md5.hash(easyTxt);
-  const newPrivacyHash = md5.hash(privacyTxt);
-
-  if (newEasyHash !== oldEasyHash || newPrivacyHash !== oldPrivacyHash) {
-    availableContainer.hidden = false;
-    updateStatus.textContent = "업데이트 가능합니다.";
-  } else {
-    updateStatus.textContent = "이미 최신입니다.";
-  }
-
-  await chrome.storage.local.set({
-    [LAST_CHECK_DATE_KEY]: new Date().toISOString().slice(0, 10),
+  // setting.html의 업데이트 탭으로 이동
+  chrome.tabs.create({ 
+    url: chrome.runtime.getURL("setting.html#update") 
   });
 }
 
 async function performUpdate() {
-  performBtn.disabled = true;
-  updateLabel.textContent = "업데이트 중…";
-
-  try {
-    const [easyTxt, privacyTxt] = await Promise.all([
-      fetch(EASYLIST_URL).then((r) => r.text()),
-      fetch(PRIVACY_URL).then((r) => r.text()),
-    ]);
-
-    const dnrEasy = parseDNRRules(easyTxt);
-    const dnrPriv = parseDNRRules(privacyTxt);
-    const cosmetic = parseCosmeticRules(easyTxt);
-
-    await chrome.storage.local.set({
-      easylist: dnrEasy,
-      easyprivacy: dnrPriv,
-      cosmetic: cosmetic,
-      [EASYLIST_HASH_KEY]: md5.hash(easyTxt),
-      [PRIVACY_HASH_KEY]: md5.hash(privacyTxt),
-      [LAST_CHECK_DATE_KEY]: new Date().toISOString().slice(0, 10),
-    });
-
-    chrome.runtime.sendMessage({ action: "rulesUpdated" });
-    updateStatus.textContent = "업데이트 완료 ✅";
-    availableContainer.hidden = true;
-  } catch (err) {
-    updateStatus.textContent = `업데이트 실패 ❌: ${err.message}`;
-  } finally {
-    performBtn.disabled = false;
-  }
+  // setting.html의 업데이트 탭으로 이동
+  chrome.tabs.create({ 
+    url: chrome.runtime.getURL("setting.html#update") 
+  });
 }
 
 async function getCurrentDomain() {

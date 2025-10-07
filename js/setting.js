@@ -476,7 +476,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 약간의 지연을 두고 초기 탭 설정 (DOM이 완전히 로드되었는지 확인)
   setTimeout(() => {
     console.log("Initializing default tab...");
-    switchTab('block');
+    
+    // URL 해시를 확인하여 해당 탭으로 이동
+    const hash = window.location.hash.substring(1); // # 제거
+    let initialTab = 'block'; // 기본값
+    
+    if (hash === 'update') {
+      initialTab = 'update';
+      console.log("URL hash detected: switching to update tab");
+    } else if (hash === 'whitelist') {
+      initialTab = 'whitelist';
+      console.log("URL hash detected: switching to whitelist tab");
+    } else if (hash === 'block') {
+      initialTab = 'block';
+      console.log("URL hash detected: switching to block tab");
+    }
+    
+    switchTab(initialTab);
   }, 100);
   
   // 대시보드 초기 업데이트
