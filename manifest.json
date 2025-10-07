@@ -18,7 +18,7 @@
             {
                 "id": "block_rule",
                 "enabled": true,
-                "path": "ruleset/block2.json"
+                "path": "ruleset/block1.json"
             }
         ]
     },
