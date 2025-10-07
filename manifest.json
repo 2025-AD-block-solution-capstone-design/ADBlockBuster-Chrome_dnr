@@ -1,6 +1,6 @@
 {
     "name": "capstone_adblock",
-    "version": "1.0",
+    "version": "1.1",
     "description": "Remove Adware with Chrome extension",
     "manifest_version": 3,
     "host_permissions": [
@@ -18,7 +18,7 @@
             {
                 "id": "block_rule",
                 "enabled": true,
-                "path": "ruleset/block1.json"
+                "path": "ruleset/block2.json"
             }
         ]
     },

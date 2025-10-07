@@ -4,6 +4,61 @@ body {
     padding: 15px;
     background-color: #f9f9f9;
   }
+
+  .update-container {
+    background-color: #fff;
+    border: 1px solid #e3e3e3;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .version-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .version-label {
+    color: #555;
+    font-weight: 600;
+  }
+
+  .version-value {
+    font-family: 'Courier New', monospace;
+    color: #333;
+  }
+
+  #checkUpdateBtn {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background-color: #4caf50;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  #checkUpdateBtn:hover {
+    background-color: #43a047;
+  }
+
+  .update-status {
+    margin-top: 8px;
+    min-height: 18px;
+    font-size: 12px;
+    color: #555;
+  }
+
+  .update-note {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #777;
+    line-height: 1.4;
+  }
   
   .header {
     font-size: 20px;
@@ -103,6 +158,45 @@ body {
     font-weight: bold;
     color: #ff5555;
   }
+
+  .domain-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0;
+    text-align: left;
+  }
+
+  .domain-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
+    color: #555;
+  }
+
+  .domain-list li:last-child {
+    border-bottom: none;
+  }
+
+  .domain-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+  }
+
+  .current-domain {
+    color: #1e88e5;
+    font-weight: 600;
+  }
+
+  .domain-count {
+    font-weight: 600;
+    color: #ff5555;
+  }
   
   .settings-btn {
     margin-top: 20px;
@@ -117,5 +211,21 @@ body {
   
   .settings-btn:hover {
     background-color: #777;
+  }
+
+  .reset-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 12px;
+    color: #555;
+  }
+
+  .reset-btn:hover {
+    background: #f0f0f0;
   }
   

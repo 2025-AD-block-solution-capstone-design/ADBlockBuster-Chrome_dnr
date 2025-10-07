@@ -18,15 +18,15 @@
     </nav>
   </aside>
   <main class="content">
-    <!-- 1) 업데이트 확인 버튼 -->
+    <!-- 룰셋 버전 정보 -->
     <div id="updateContainer" class="update-container">
-      <button id="checkUpdateBtn">업데이트 확인</button>
-      <!-- 2) 가능 시 노출 -->
-      <div id="availableContainer" hidden>
-        <span id="updateLabel">새로운 룰셋이 있습니다.</span>
-        <button id="performUpdateBtn">업데이트 실행</button>
+      <div class="version-row">
+        <span class="version-label">현재 EasyList 버전</span>
+        <span id="rulesetVersion" class="version-value">-</span>
       </div>
+      <button id="checkUpdateBtn">최신 버전 확인</button>
       <div id="updateStatus" class="update-status"></div>
+      <p class="update-note">최신 EasyList를 적용하려면 배포 전에 `node js/cicd/dnr_generator.js`를 실행하세요.</p>
     </div>
 
     <section id="block-settings" class="setting-section">
@@ -51,8 +51,6 @@
   </main>
 </div>
 
-<!-- SparkMD5: MD5 해시 계산용 -->
-<script src="js/libs/spark-md5.min.js"></script>
 <!-- 설정 화면 로직 -->
 <script type="module" src="js/setting.js"></script>
 </body>

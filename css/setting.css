@@ -47,6 +47,61 @@ body {
   background-color: #f4f4f4;
 }
 
+.update-container {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.version-label {
+  color: #444;
+  font-weight: 600;
+}
+
+.version-value {
+  font-family: 'Courier New', monospace;
+  color: #1e1e2f;
+}
+
+#checkUpdateBtn {
+  background-color: #2e8b57;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#checkUpdateBtn:hover {
+  background-color: #277049;
+}
+
+.update-status {
+  margin-top: 10px;
+  min-height: 20px;
+  font-size: 13px;
+  color: #555;
+}
+
+.update-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #777;
+  line-height: 1.5;
+}
+
 .setting-section {
   margin-bottom: 30px;
 }

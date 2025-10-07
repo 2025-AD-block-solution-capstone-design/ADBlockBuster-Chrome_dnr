@@ -11,16 +11,15 @@
   <span class="title">ADBlockBuster</span>
 </div>
 
-<!-- 1) 업데이트 확인 버튼 -->
+<!-- 룰셋 버전 정보 -->
 <div id="updateContainer" class="update-container">
-  <button id="checkUpdateBtn">업데이트 확인</button>
-  <!-- 2) 업데이트 가능 시 노출되는 실행 여부 영역 -->
-  <div id="availableContainer" hidden>
-    <span id="updateLabel">새로운 룰셋이 있습니다.</span>
-    <button id="performUpdateBtn">업데이트 실행</button>
+  <div class="version-row">
+    <span class="version-label">현재 EasyList 버전</span>
+    <span id="rulesetVersion" class="version-value">-</span>
   </div>
-  <!-- 상태 메시지 -->
+  <button id="checkUpdateBtn">최신 버전 확인</button>
   <div id="updateStatus" class="update-status"></div>
+  <p class="update-note">최신 EasyList를 반영하려면 배포 전에 `node js/cicd/dnr_generator.js`를 실행하세요.</p>
 </div>
 
 <!-- 광고 전체 차단 토글 -->
@@ -44,12 +43,12 @@
 <div class="card">
   <div class="card-title">총 차단된 광고 수</div>
   <div class="ad-count" id="adCount">0</div>
+  <ul class="domain-list" id="domainStats"></ul>
+  <button id="resetStatsBtn" class="reset-btn">카운트 초기화</button>
 </div>
 
 <button class="settings-btn" id="goToSettingsBtn">설정</button>
 
-<!-- SparkMD5: MD5 해시 계산용 -->
-<script src="js/libs/spark-md5.min.js"></script>
 <!-- 팝업 로직 -->
 <script type="module" src="js/popup.js"></script>
 </body>
