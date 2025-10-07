@@ -185,7 +185,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({success: true});
         return true;
     }
+    
+    // IndexedDB에서 룰셋 로드 요청 처리 (새로 추가)
+    if (message.type === 'LOAD_RULESETS_FROM_INDEXEDDB') {
+        loadRulesetsFromIndexedDB().then(result => {
+            sendResponse(result);
+        }).catch(error => {
+            console.error('IndexedDB 룰셋 로드 실패:', error);
+            sendResponse({success: false, error: error.message});
+        });
+        return true;
+    }
 });
+
+// IndexedDB에서 룰셋을 로드하는 함수
+async function loadRulesetsFromIndexedDB() {
+    try {
+        // IndexedDB 연결
+        const db = await openIndexedDB();
+        const transaction = db.transaction(['rulesets'], 'readonly');
+        const store = transaction.objectStore('rulesets');
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get('current');
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result) {
+                    console.log('IndexedDB에서 룰셋 로드 성공:', {
+                        easylistRules: result.easylist?.length || 0,
+                        easyprivacyRules: result.easyprivacy?.length || 0,
+                        cosmeticRules: result.cosmetic?.length || 0,
+                        timestamp: new Date(result.timestamp).toLocaleString()
+                    });
+                    resolve({success: true, rulesets: result});
+                } else {
+                    console.log('IndexedDB에 저장된 룰셋이 없습니다.');
+                    resolve({success: false, message: 'No rulesets found'});
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('IndexedDB 접근 오류:', error);
+        return {success: false, error: error.message};
+    }
+}
+
+// IndexedDB 연결 헬퍼 함수
+function openIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('ADBlockBusterRulesets', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
 
 
 const COSMETIC_JSON_URL = chrome.runtime.getURL('ruleset/cosmeticList-selector.json');
