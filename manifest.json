@@ -53,6 +53,7 @@
     "48": "icons/images.png",
     "128": "icons/images.png"
   },
+  "web_accessible_resources": [
     {
       "resources": ["setting.html"],
       "matches": ["<all_urls>"]
