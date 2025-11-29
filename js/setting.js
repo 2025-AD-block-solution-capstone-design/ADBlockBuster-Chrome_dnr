@@ -353,13 +353,19 @@ async function updateRulesetStatus() {
       'rulesetSource', 
       'lastRulesetLoadTime', 
       'lastUpdateSuccess',
-      'useIndexedDB'
+      'useIndexedDB',
+      'loadedRulesCount',
+      'totalRulesCount',
+      'rulesetLoadError'
     ]);
     
     const source = storageData.rulesetSource || 'unknown';
     const lastLoad = storageData.lastRulesetLoadTime;
     const lastSuccess = storageData.lastUpdateSuccess;
     const useIndexedDB = storageData.useIndexedDB;
+    const loadedCount = storageData.loadedRulesCount;
+    const totalCount = storageData.totalRulesCount;
+    const loadError = storageData.rulesetLoadError;
     
     // IndexedDB에서 룰셋 정보 가져오기
     let indexedDBRulesets = null;
@@ -373,7 +379,16 @@ async function updateRulesetStatus() {
     let statusText = '';
     let statusClass = '';
     
-    if (source === 'static') {
+    if (loadError) {
+      statusText = `❌ 룰셋 로드 실패: ${loadError}`;
+      statusClass = 'text-danger';
+    } else if (source === 'static-limited') {
+      statusText = `🏠 정적 룰 사용 중 (${loadedCount}/${totalCount}개 로드됨) + manifest.json`;
+      statusClass = 'text-primary';
+    } else if (source === 'indexeddb-limited') {
+      statusText = `🎯 IndexedDB 룰 사용 중 (${loadedCount}/${totalCount}개 로드됨) + manifest.json`;
+      statusClass = 'text-success';
+    } else if (source === 'static') {
       statusText = '🏠 정적 파일 사용 중 (ruleset/ 디렉터리)';
       statusClass = 'text-primary';
     } else if (source === 'indexeddb') {
@@ -392,12 +407,20 @@ async function updateRulesetStatus() {
     // 세부 정보 생성
     let details = [];
     
+    if (loadedCount && totalCount) {
+      details.push(`동적 룰: ${loadedCount}/${totalCount}개 (Chrome 제한: 30,000개) + manifest.json + 화이트리스트 우선순위`);
+    }
+    
     if (lastLoad) {
       details.push(`마지막 로드: ${new Date(lastLoad).toLocaleString()}`);
     }
     
     if (lastSuccess !== undefined) {
       details.push(`마지막 업데이트: ${lastSuccess ? '성공 ✅' : '실패 ❌'}`);
+    }
+    
+    if (loadError) {
+      details.push(`오류: ${loadError}`);
     }
     
     if (indexedDBRulesets) {
@@ -655,10 +678,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     globalToggle.addEventListener("change", async () => {
       const disabled = !globalToggle.checked;
       await chrome.storage.sync.set({ globalBlockingDisabled: disabled });
+      
+      // DNR 룰셋 제어
       await chrome.declarativeNetRequest.updateEnabledRulesets({
         enableRulesetIds: disabled ? [] : [RULESET_ID],
         disableRulesetIds: disabled ? [RULESET_ID] : [],
       });
+      
+      // 코스메틱 필터 재로드 요청
+      await chrome.runtime.sendMessage({ type: 'RELOAD_COSMETIC_FILTER' });
     });
   }
 
@@ -680,6 +708,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
   });
+  
+  // 서비스 워커로부터 메시지 수신
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'TOTAL_BLOCKED_COUNT_UPDATED') {
+      console.log('📊 차단 카운트 업데이트 메시지 받음:', message.payload);
+      updateDashboard();
+      sendResponse({success: true});
+      return true;
+    }
+  });
 
   // 화이트리스트 관련 이벤트 리스너들 (요소가 있을 때만)
   if (whitelistForm && whitelistInput) {
@@ -691,8 +729,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!whitelist.includes(site)) {
         whitelist.push(site);
         await chrome.storage.sync.set({ whitelist });
+        
+        // 화이트리스트 DNR 룰 업데이트
+        await chrome.runtime.sendMessage({ type: 'UPDATE_WHITELIST_RULES' });
+        
         if (globalRenderWhitelist) globalRenderWhitelist();
         whitelistInput.value = "";
+        
+        // 성공 메시지 표시
+        alert(`"${site}"이(가) 화이트리스트에 추가되었습니다.`);
+      } else {
+        alert(`"${site}"은(는) 이미 화이트리스트에 있습니다.`);
       }
     });
   }
@@ -704,7 +751,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const confirmed = confirm("모든 화이트리스트 항목을 삭제하시겠습니까?");
       if (confirmed) {
         await chrome.storage.sync.set({ whitelist: [] });
+        
+        // 화이트리스트 DNR 룰 업데이트
+        await chrome.runtime.sendMessage({ type: 'UPDATE_WHITELIST_RULES' });
+        
         if (globalRenderWhitelist) globalRenderWhitelist();
+        alert("모든 화이트리스트 항목이 삭제되었습니다.");
       }
     });
   }
@@ -715,9 +767,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       const confirmed = confirm("차단 통계를 0으로 리셋하시겠습니까?");
       if (confirmed) {
         try {
-          await chrome.runtime.sendMessage({ type: 'RESET_BLOCKED_COUNT' });
-          updateDashboard(); // 대시보드 즉시 업데이트
-          alert("차단 통계가 리셋되었습니다.");
+          const result = await chrome.runtime.sendMessage({ type: 'RESET_BLOCKED_COUNT' });
+          if (result.success) {
+            updateDashboard(); // 대시보드 즉시 업데이트
+            alert("차단 통계가 리셋되었습니다.");
+          } else {
+            alert(`리셋에 실패했습니다: ${result.error}`);
+          }
         } catch (error) {
           console.error("리셋 실패:", error);
           alert("리셋에 실패했습니다.");
@@ -725,6 +781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
   }
+  
 
   // 화이트리스트 렌더링 함수를 지역 함수로 정의
   async function renderWhitelist() {
@@ -758,7 +815,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const { whitelist = [] } = await chrome.storage.sync.get("whitelist");
         const newList = whitelist.filter((s) => s !== site);
         await chrome.storage.sync.set({ whitelist: newList });
+        
+        // 화이트리스트 DNR 룰 업데이트
+        await chrome.runtime.sendMessage({ type: 'UPDATE_WHITELIST_RULES' });
+        
         renderWhitelist();
+        alert(`"${site}"이(가) 화이트리스트에서 제거되었습니다.`);
       });
 
       whitelistList.appendChild(div);

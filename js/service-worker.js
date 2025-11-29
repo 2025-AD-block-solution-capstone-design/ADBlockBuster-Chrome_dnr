@@ -56,51 +56,114 @@ async function loadRulesetsFromIndexedDB() {
     }
 }
 
-// IndexedDB에서 룰셋을 로드하고 DNR 룰을 업데이트하는 함수
+// IndexedDB에서 룰셋을 로드하는 함수 (DNR은 정적 룰만 사용)
 async function updateDynamicRulesFromIndexedDB() {
     try {
-        console.log('📊 IndexedDB에서 룰셋 로드 중...');
+        console.log('📊 IndexedDB에서 룰셋 로드 중... (DNR은 정적 룰만 사용)');
         const loadResult = await loadRulesetsFromIndexedDB();
         
         if (!loadResult.success || !loadResult.rulesets) {
-            console.log('⚠️ IndexedDB에 룰셋이 없어서 기본 파일 사용');
+            console.log('⚠️ IndexedDB에 룰셋이 없어서 manifest.json 룰만 사용');
             return {success: false, message: 'No rulesets in IndexedDB'};
         }
         
         const { easylist, easyprivacy } = loadResult.rulesets;
         
-        // 기존 동적 룰 모두 제거
-        const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-        const ruleIdsToRemove = existingRules.map(rule => rule.id);
+        // DNR은 정적 룰(manifest.json)만 사용하므로 동적 룰 추가하지 않음
+        console.log('🏠 DNR은 manifest.json의 정적 룰만 사용');
+        console.log('📊 IndexedDB 룰셋 정보 (코스메틱 필터용):', {
+            easylist: easylist?.length || 0,
+            easyprivacy: easyprivacy?.length || 0,
+            cosmetic: loadResult.rulesets.cosmetic?.length || 0
+        });
         
-        if (ruleIdsToRemove.length > 0) {
-            await chrome.declarativeNetRequest.updateDynamicRules({
-                removeRuleIds: ruleIdsToRemove
-            });
-            console.log(`🗑️ 기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
-        }
-        
-        // 새로운 룰셋 추가
-        const allRules = [...(easylist || []), ...(easyprivacy || [])];
-        
-        if (allRules.length > 0) {
-            await chrome.declarativeNetRequest.updateDynamicRules({
-                addRules: allRules
-            });
-            console.log(`✅ IndexedDB 룰셋 ${allRules.length}개 적용됨 (EasyList: ${easylist?.length || 0}, EasyPrivacy: ${easyprivacy?.length || 0})`);
-            console.log('🎯 현재 사용 중인 룰셋: IndexedDB (업데이트된 룰셋)');
-        }
+        // 로드된 룰셋 정보를 스토리지에 저장 (DNR은 정적 룰만 사용)
+        await chrome.storage.local.set({
+            loadedRulesCount: 1, // manifest.json의 block2.json 룰만 사용
+            totalRulesCount: 1,
+            rulesetSource: 'manifest-static-only',
+            lastRulesetLoadTime: Date.now()
+        });
         
         return {
             success: true, 
-            rulesAdded: allRules.length,
+            rulesAdded: 0, // DNR 동적 룰 추가하지 않음
+            totalRules: 1, // manifest.json 룰만 사용
             easylistRules: easylist?.length || 0,
             easyprivacyRules: easyprivacy?.length || 0
         };
         
     } catch (error) {
-        console.error('❌ DNR 룰 업데이트 실패:', error);
+        console.error('❌ IndexedDB 룰셋 로드 실패:', error);
+        console.error('상세 오류:', error.stack);
+        
+        // 오류 정보를 스토리지에 저장
+        await chrome.storage.local.set({
+            rulesetLoadError: error.message,
+            lastRulesetLoadTime: Date.now()
+        });
+        
         return {success: false, error: error.message};
+    }
+}
+
+// 화이트리스트 관리 함수들 (DNR은 정적 룰만 사용하되 화이트리스트는 동적 룰로 유지)
+async function updateWhitelistRules() {
+    try {
+        console.log('🔍 화이트리스트 룰 업데이트 시작... (DNR은 정적 룰만 사용)');
+        
+        // 현재 동적 룰 상태 확인
+        const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+        console.log(`📊 현재 동적 룰: ${existingRules.length}개`);
+        
+        // 모든 기존 동적 룰 제거 (DNR은 정적 룰만 사용하므로 모든 동적 룰 제거)
+        if (existingRules.length > 0) {
+            const allRuleIds = existingRules.map(rule => rule.id);
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: allRuleIds
+            });
+            console.log(`🗑️ 모든 기존 동적 룰 ${allRuleIds.length}개 제거됨 (DNR은 정적 룰만 사용)`);
+        }
+        
+        // 현재 화이트리스트 가져오기
+        const { whitelist = [] } = await chrome.storage.sync.get('whitelist');
+        
+        if (whitelist.length > 0) {
+            // 화이트리스트 도메인에 대한 허용 룰 생성 (최고 우선순위)
+            const whitelistRules = whitelist.map((domain, index) => ({
+                id: 50000 + index, // ID 범위를 50000+로 변경하여 충돌 방지
+                priority: 1, // 최고 우선순위
+                action: {
+                    type: 'allow'
+                },
+                condition: {
+                    domains: [domain],
+                    resourceTypes: ['main_frame', 'sub_frame', 'script', 'stylesheet', 'image', 'font', 'object', 'xmlhttprequest', 'ping', 'csp_report', 'media', 'websocket', 'other']
+                }
+            }));
+            
+            // 화이트리스트 룰만 동적 룰로 추가 (DNR은 정적 룰만 사용하므로 공간 충분)
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                addRules: whitelistRules
+            });
+            console.log(`✅ 화이트리스트 동적 룰 ${whitelistRules.length}개 추가됨 (최고 우선순위):`, whitelist);
+            console.log('🏠 DNR은 manifest.json의 정적 룰만 사용, 화이트리스트만 동적 룰로 관리');
+            
+            // 추가된 화이트리스트 룰 확인
+            const addedRules = await chrome.declarativeNetRequest.getDynamicRules();
+            const whitelistRulesAdded = addedRules.filter(rule => rule.id >= 50000);
+            console.log(`🔍 실제 추가된 화이트리스트 룰: ${whitelistRulesAdded.length}개`);
+            if (whitelistRulesAdded.length > 0) {
+                console.log('📋 첫 번째 화이트리스트 룰 예시:', whitelistRulesAdded[0]);
+            }
+        } else {
+            console.log('📝 화이트리스트가 비어있음 - 허용 룰 없음');
+        }
+        
+        return { success: true, rulesAdded: whitelist.length };
+    } catch (error) {
+        console.error('❌ 화이트리스트 룰 업데이트 실패:', error);
+        return { success: false, error: error.message };
     }
 }
 
@@ -143,6 +206,9 @@ async function initializeRulesets() {
                 lastRulesetLoadTime: Date.now()
             });
         }
+        
+        // 화이트리스트 룰 업데이트
+        await updateWhitelistRules();
     } catch (error) {
         console.error('❌ 룰셋 초기화 실패:', error);
         // 실패 시 기본 파일 사용
@@ -155,41 +221,34 @@ async function initializeRulesets() {
     }
 }
 
-// 기본 정적 룰셋 로드 함수
+// 기본 정적 룰셋 로드 함수 (manifest.json의 정적 룰만 사용)
 async function loadDefaultStaticRulesets() {
     try {
-        console.log('📁 기본 정적 룰셋 로드 중...');
+        console.log('📁 기본 정적 룰셋 로드 중... (DNR은 manifest.json의 정적 룰만 사용)');
         
-        // 기본 JSON 파일들 로드
-        const [block1, block2] = await Promise.all([
-            fetch(chrome.runtime.getURL('ruleset/block1.json')).then(r => r.json()),
-            fetch(chrome.runtime.getURL('ruleset/block2.json')).then(r => r.json())
-        ]);
+        // DNR은 manifest.json의 정적 룰만 사용하므로 동적 룰 추가하지 않음
+        console.log('🏠 DNR은 manifest.json의 정적 룰만 사용');
+        console.log('📊 manifest.json에 등록된 룰셋: block2.json');
         
-        // 기존 동적 룰 제거
-        const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-        const ruleIdsToRemove = existingRules.map(rule => rule.id);
+        // 로드된 룰셋 정보를 스토리지에 저장 (DNR은 정적 룰만 사용)
+        await chrome.storage.local.set({
+            loadedRulesCount: 1, // manifest.json의 block2.json 룰만 사용
+            totalRulesCount: 1,
+            rulesetSource: 'manifest-static-only',
+            lastRulesetLoadTime: Date.now()
+        });
         
-        if (ruleIdsToRemove.length > 0) {
-            await chrome.declarativeNetRequest.updateDynamicRules({
-                removeRuleIds: ruleIdsToRemove
-            });
-            console.log(`🗑️ 기존 동적 룰 ${ruleIdsToRemove.length}개 제거됨`);
-        }
-        
-        // 기본 룰셋 추가
-        const allRules = [...(block1 || []), ...(block2 || [])];
-        
-        if (allRules.length > 0) {
-            await chrome.declarativeNetRequest.updateDynamicRules({
-                addRules: allRules
-            });
-            console.log(`✅ 기본 정적 룰셋 ${allRules.length}개 로드됨 (Block1: ${block1?.length || 0}, Block2: ${block2?.length || 0})`);
-            console.log('🏠 현재 사용 중인 룰셋: 정적 파일 (ruleset/ 디렉터리)');
-        }
+        console.log('✅ DNR 정적 룰셋 로드 완료 (manifest.json의 block2.json)');
         
     } catch (error) {
-        console.error('❌ 기본 룰셋 로드 실패:', error);
+        console.error('❌ 정적 룰셋 로드 실패:', error);
+        console.error('상세 오류:', error.stack);
+        
+        // 오류 정보를 스토리지에 저장
+        await chrome.storage.local.set({
+            rulesetLoadError: error.message,
+            lastRulesetLoadTime: Date.now()
+        });
     }
 }
 
@@ -328,8 +387,9 @@ updateBlockedCount();
 
 // 실제 DNR 차단 이벤트 감지 (더 정확한 방법)
 chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
-    console.log('DNR 규칙 매치됨:', info);
+    console.log('🚫 DNR 규칙 매치됨:', info);
     dnrBlockCount++;
+    console.log(`🌐 DNR 차단 감지: +1 (누적: ${dnrBlockCount})`);
     
     // 즉시 호스트명 추출 및 이벤트 기록
     const hostname = extractHostname(info.request.url);
@@ -339,45 +399,24 @@ chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
     updateBlockedCount();
 });
 
-// 백업용 네트워크 감지 (더 관대하게 설정)
-chrome.webNavigation.onCommitted.addListener((details) => {
-    // 메인 프레임이고 HTTP/HTTPS일 때만
-    if (details.frameId === 0 && 
-        (details.url.startsWith('http://') || details.url.startsWith('https://')) &&
-        Math.random() < 0.3) { // 30% 확률로 증가
-        dnrBlockCount++;
-        
-        const hostname = extractHostname(details.url);
-        recordBlockEvent(hostname, details.tabId || null);
-    }
-});
+// 백업용 네트워크 감지 제거 - 실제 차단이 아닌 일반 네비게이션을 카운트하고 있었음
+// chrome.webNavigation.onCommitted.addListener((details) => {
+//     // 메인 프레임이고 HTTP/HTTPS일 때만
+//     if (details.frameId === 0 && 
+//         (details.url.startsWith('http://') || details.url.startsWith('https://')) &&
+//         Math.random() < 0.3) { // 30% 확률로 증가
+//         dnrBlockCount++;
+//         
+//         const hostname = extractHostname(details.url);
+//         recordBlockEvent(hostname, details.tabId || null);
+//     }
+// });
 
-// 추가적인 차단 감지 방법들
-chrome.webRequest?.onBeforeRequest?.addListener?.((details) => {
-    // 광고 관련 URL 패턴 감지시 카운트 증가
-    const adPatterns = [
-        'ads', 'advertisement', 'doubleclick', 'googleads', 
-        'googlesyndication', 'amazon-adsystem', 'facebook.com/tr'
-    ];
-    
-    if (adPatterns.some(pattern => details.url.includes(pattern))) {
-        dnrBlockCount++;
-        console.log('광고 URL 감지됨:', details.url);
-        
-        const hostname = extractHostname(details.url);
-        recordBlockEvent(hostname, details.tabId || null);
-    }
-}, { urls: ["<all_urls>"] });
+// webRequest.onBeforeRequest는 실제 차단이 아닌 요청을 카운트하므로 제거
+// 실제 DNR 차단은 onRuleMatchedDebug로만 감지해야 함
 
-// 디버깅을 위한 수동 카운트 증가 기능
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'MANUAL_DNR_COUNT') {
-        dnrBlockCount += message.count || 1;
-        console.log(`수동 DNR 카운트 증가: +${message.count || 1}`);
-        updateBlockedCount();
-        sendResponse({success: true});
-        return true;
-    }
+    // 메시지 리스너
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // 룰셋 업데이트 메시지 처리 (새로 추가)
     if (message.action === 'rulesUpdated') {
@@ -420,6 +459,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.error('IndexedDB 룰셋 로드 실패:', error);
             sendResponse({success: false, error: error.message});
         });
+        return true;
+    }
+    
+    // 현재 동적 룰 상태 확인 (디버깅용)
+    if (message.type === 'CHECK_CURRENT_RULES') {
+        (async () => {
+            try {
+                const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
+                const sessionRules = await chrome.declarativeNetRequest.getSessionRules();
+                const enabledRulesets = await chrome.declarativeNetRequest.getEnabledRulesets();
+                
+                console.log('🔍 현재 룰 상태:');
+                console.log(`- 동적 룰: ${dynamicRules.length}개`);
+                console.log(`- 세션 룰: ${sessionRules.length}개`);
+                console.log(`- 활성화된 룰셋: ${enabledRulesets.length}개`);
+                
+                // 화이트리스트 룰 확인
+                const whitelistRules = dynamicRules.filter(rule => rule.id >= 50000);
+                console.log(`- 화이트리스트 룰: ${whitelistRules.length}개`);
+                
+                if (dynamicRules.length > 0) {
+                    console.log('📋 동적 룰 예시:', dynamicRules.slice(0, 3));
+                }
+                
+                if (whitelistRules.length > 0) {
+                    console.log('📋 화이트리스트 룰 예시:', whitelistRules);
+                }
+                
+                if (sessionRules.length > 0) {
+                    console.log('📋 세션 룰 예시:', sessionRules.slice(0, 3));
+                }
+                
+                sendResponse({
+                    success: true,
+                    dynamicRules: dynamicRules.length,
+                    sessionRules: sessionRules.length,
+                    enabledRulesets: enabledRulesets.length,
+                    whitelistRules: whitelistRules.length,
+                    sampleDynamicRules: dynamicRules.slice(0, 3),
+                    sampleWhitelistRules: whitelistRules,
+                    sampleSessionRules: sessionRules.slice(0, 3)
+                });
+            } catch (error) {
+                console.error('룰 상태 확인 실패:', error);
+                sendResponse({success: false, error: error.message});
+            }
+        })();
         return true;
     }
 });
@@ -479,14 +565,28 @@ loadCosmeticRuleset();
 // 코스메틱 필터 룰셋 리스너 추가
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GET_COSMETIC_RULESET') {
-        sendResponse({ruleset: COSMETIC_RULESET});
+        // 전역 차단 설정 확인
+        chrome.storage.sync.get(['globalBlockingDisabled', 'whitelist'], (result) => {
+            const isGlobalDisabled = result.globalBlockingDisabled || false;
+            const whitelist = result.whitelist || [];
+            const currentDomain = sender.tab ? new URL(sender.tab.url).hostname : null;
+            const isWhitelisted = currentDomain && whitelist.includes(currentDomain);
+            
+            // 전역 차단이 비활성화되었거나 현재 도메인이 화이트리스트에 있으면 빈 룰셋 반환
+            if (isGlobalDisabled || isWhitelisted) {
+                console.log(`🎨 코스메틱 필터 비활성화: 전역차단=${isGlobalDisabled}, 화이트리스트=${isWhitelisted}`);
+                sendResponse({ruleset: []});
+            } else {
+                sendResponse({ruleset: COSMETIC_RULESET});
+            }
+        });
         return true;  // 비동기 응답을 유지
     }
     
     // 코스메틱 필터링 카운트 수신
     if (message.type === 'COSMETIC_BLOCKED') {
         cosmeticBlockCount += message.count || 1;
-        console.log(`코스메틱 필터링 감지: +${message.count || 1}`);
+        console.log(`🎨 코스메틱 필터링 감지: +${message.count || 1} (누적: ${cosmeticBlockCount})`);
         // 즉시 업데이트 (실시간 반영)
         updateBlockedCount();
         return true;
@@ -494,15 +594,72 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // 차단 카운트 리셋 기능 추가
     if (message.type === 'RESET_BLOCKED_COUNT') {
-        chrome.storage.local.set({
-            DNR_BLOCKED_COUNT: 0,
-            COSMETIC_BLOCKED_COUNT: 0,
-            TOTAL_BLOCKED_COUNT: 0
+        (async () => {
+            try {
+                await chrome.storage.local.set({
+                    DNR_BLOCKED_COUNT: 0,
+                    COSMETIC_BLOCKED_COUNT: 0,
+                    TOTAL_BLOCKED_COUNT: 0
+                });
+                
+                // 메모리상의 카운트도 리셋
+                dnrBlockCount = 0;
+                cosmeticBlockCount = 0;
+                
+                // 도메인별 차단 통계도 리셋
+                blockedDomainCounts = {};
+                recentBlocksByTab.clear();
+                
+                console.log('🔄 차단 카운트가 완전히 리셋되었습니다.');
+                
+                // 클라이언트에게 리셋 완료 알림 (모든 탭에 메시지 전송)
+                chrome.tabs.query({}, (tabs) => {
+                    tabs.forEach(tab => {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'TOTAL_BLOCKED_COUNT_UPDATED',
+                            payload: {
+                                totalBlockedCount: 0,
+                                topBlockedDomains: {}
+                            }
+                        }).catch(() => {
+                            // content script가 없는 탭은 무시
+                        });
+                    });
+                });
+                
+                sendResponse({success: true});
+            } catch (error) {
+                console.error('❌ 차단 카운트 리셋 실패:', error);
+                sendResponse({success: false, error: error.message});
+            }
+        })();
+        return true;
+    }
+    
+    // 코스메틱 필터 재로드 요청 처리
+    if (message.type === 'RELOAD_COSMETIC_FILTER') {
+        console.log('🎨 코스메틱 필터 재로드 요청 받음');
+        // 모든 탭의 content script에 코스메틱 필터 재로드 메시지 전송
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, {type: 'RELOAD_COSMETIC_FILTER'}).catch(() => {
+                    // content script가 없는 탭은 무시
+                });
+            });
         });
-        dnrBlockCount = 0;
-        cosmeticBlockCount = 0;
-        console.log('차단 카운트가 리셋되었습니다.');
         sendResponse({success: true});
+        return true;
+    }
+    
+    // 화이트리스트 업데이트 요청 처리
+    if (message.type === 'UPDATE_WHITELIST_RULES') {
+        console.log('🔍 화이트리스트 룰 업데이트 요청 받음');
+        updateWhitelistRules().then(result => {
+            sendResponse(result);
+        }).catch(error => {
+            console.error('화이트리스트 룰 업데이트 실패:', error);
+            sendResponse({success: false, error: error.message});
+        });
         return true;
     }
 });

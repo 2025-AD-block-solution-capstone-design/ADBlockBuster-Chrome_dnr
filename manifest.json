@@ -2,7 +2,7 @@
   "name": "capstone_adblock",
   "version": "1.0",
   "description": "Remove Adware with Chrome extension",
-  "manifest_version": 3,
+  "manifest_version": 3, 
   "host_permissions": [
     "https://easylist.to/easylist/easylist.txt",
     "https://easylist.to/easylist/easyprivacy.txt",

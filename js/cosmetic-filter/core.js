@@ -214,25 +214,41 @@ class CosmeticFilter {
     }
 }
 
-// content script 초기화 (생략 없이 그대로)
-chrome.runtime.sendMessage({type: 'GET_COSMETIC_RULESET'}, async (response) => {
-    if (!response?.ruleset?.length) {
-        console.warn('[Cosmetic] 룰셋이 없습니다.');
-        return;
+// 코스메틱 필터 실행 함수
+async function runCosmeticFilter() {
+    chrome.runtime.sendMessage({type: 'GET_COSMETIC_RULESET'}, async (response) => {
+        console.log('[Cosmetic] 룰셋 응답 받음:', response);
+        
+        if (!response?.ruleset?.length) {
+            console.warn('[Cosmetic] 룰셋이 없습니다. (전역 차단 비활성화 또는 화이트리스트)');
+            return;
+        }
+
+        console.log(`[Cosmetic] ${response.ruleset.length}개 룰셋으로 필터링 시작`);
+        const cosmeticFilter = new CosmeticFilter(response.ruleset, {});
+        const matchedSelectors = await cosmeticFilter.getMatchedSelectors();
+
+        console.log(`[Cosmetic] 매칭된 셀렉터 수: ${Object.keys(matchedSelectors).length}`);
+        
+        // **코어 기능 유지** 순서대로 실행
+        await cosmeticFilter.applyInlineCSS(matchedSelectors);
+        await cosmeticFilter.removeElements(matchedSelectors);
+        await cosmeticFilter.observeDynamicContent(matchedSelectors);
+        await cosmeticFilter.observeShadowDOM(matchedSelectors);
+        
+        console.log('[Cosmetic] 필터링 완료');
+    });
+}
+
+// content script 초기화
+runCosmeticFilter();
+
+// 코스메틱 필터 재로드 메시지 리스너
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'RELOAD_COSMETIC_FILTER') {
+        console.log('[Cosmetic] 필터 재로드 요청 받음');
+        runCosmeticFilter();
+        sendResponse({success: true});
+        return true;
     }
-
-    const cosmeticFilter = new CosmeticFilter(response.ruleset, {});
-    const matchedSelectors = await cosmeticFilter.getMatchedSelectors();
-
-    for (const selector in matchedSelectors) {
-        matchedSelectors[selector].forEach((element) => {
-            console.log(element);
-        })
-    }
-
-    // **코어 기능 유지** 순서대로 실행
-    await cosmeticFilter.applyInlineCSS(matchedSelectors);
-    await cosmeticFilter.removeElements(matchedSelectors);
-    await cosmeticFilter.observeDynamicContent(matchedSelectors);
-    await cosmeticFilter.observeShadowDOM(matchedSelectors);
 });
